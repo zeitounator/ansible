@@ -87,16 +87,16 @@ def ensure_value(namespace, name, value):
 #
 # Callbacks to validate and normalize Options
 #
-def unfrack_path(pathsep=False):
+def unfrack_path(pathsep=False, follow=True):
     """Turn an Option's data into a single path in Ansible locations"""
     def inner(value):
         if pathsep:
-            return [unfrackpath(x) for x in value.split(os.pathsep) if x]
+            return [unfrackpath(x, follow=follow) for x in value.split(os.pathsep) if x]
 
         if value == '-':
             return value
 
-        return unfrackpath(value)
+        return unfrackpath(value, follow=follow)
     return inner
 
 
@@ -177,7 +177,7 @@ def version(prog=None):
     result.append("  ansible python module location = %s" % ':'.join(ansible.__path__))
     result.append("  ansible collection location = %s" % ':'.join(C.COLLECTIONS_PATHS))
     result.append("  executable location = %s" % sys.argv[0])
-    result.append("  python version = %s" % ''.join(sys.version.splitlines()))
+    result.append("  python version = %s (%s)" % (''.join(sys.version.splitlines()), to_native(sys.executable)))
     result.append("  jinja version = %s" % j2_version)
     result.append("  libyaml = %s" % HAS_LIBYAML)
     return "\n".join(result)
@@ -225,7 +225,7 @@ def add_async_options(parser):
 
 def add_basedir_options(parser):
     """Add options for commands which can set a playbook basedir"""
-    parser.add_argument('--playbook-dir', default=C.config.get_config_value('PLAYBOOK_DIR'), dest='basedir', action='store',
+    parser.add_argument('--playbook-dir', default=C.PLAYBOOK_DIR, dest='basedir', action='store',
                         help="Since this tool does not use playbooks, use this as a substitute playbook directory. "
                              "This sets the relative path for many features including roles/ group_vars/ etc.",
                         type=unfrack_path())
@@ -388,4 +388,4 @@ def add_vault_options(parser):
     base_group.add_argument('--ask-vault-password', '--ask-vault-pass', default=C.DEFAULT_ASK_VAULT_PASS, dest='ask_vault_pass', action='store_true',
                             help='ask for vault password')
     base_group.add_argument('--vault-password-file', '--vault-pass-file', default=[], dest='vault_password_files',
-                            help="vault password file", type=unfrack_path(), action='append')
+                            help="vault password file", type=unfrack_path(follow=False), action='append')

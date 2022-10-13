@@ -33,7 +33,7 @@ when a term comes up on the mailing list.
         Name used starting with 2.11. The installable package (RPM/Python/Deb package) generated from the `ansible/ansible repository <https://github.com/ansible/ansible>`_. Contains the command-line tools and the code for basic features and functions, such as copying module code to managed nodes. The ``ansible-core`` package includes a few modules and plugins and allows you to add others by installing collections.
 
     Ansible Galaxy
-        An `online resource <galaxy.ansible.com>`_ for finding and sharing Ansible community content. Also, the command-line utility that lets users install individual Ansible Collections, for example`` ansible-galaxy install community.crypto``.
+        An `online distribution server <galaxy.ansible.com>`_ for finding and sharing Ansible community content, sometimes referred to as community Galaxy. Also, the command-line utility that lets users install individual Ansible Collections, for example ``ansible-galaxy collection install community.crypto``.
 
     Async
         Refers to a task that is configured to run in the background rather
@@ -68,10 +68,10 @@ when a term comes up on the mailing list.
         The second part of a Fully Qualified Collection Name. The collection name divides the collection namespace and usually reflects the function of the collection content. For example, the ``cisco`` namespace might contain ``cisco.ios``, ``cisco.aci``, and ``cisco.nxos``, with content for managing the different network devices maintained by Cisco.
 
     community.general (collection)
-        A special collection managed by the Ansible Community Team containing all the modules and plugins which shipped in Ansible 2.9 that do not have their own dedicated Collection. See `community.general <https://galaxy.ansible.com/community/general>`_` on Galaxy.
+        A special collection managed by the Ansible Community Team containing all the modules and plugins which shipped in Ansible 2.9 that do not have their own dedicated Collection. See `community.general <https://galaxy.ansible.com/community/general>`_ on Galaxy.
 
     community.network (collection)
-        Similar to ``community.general``, focusing on network content. `community.network <https://galaxy.ansible.com/community/network>`_` on Galaxy.
+        Similar to ``community.general``, focusing on network content. `community.network <https://galaxy.ansible.com/community/network>`_ on Galaxy.
 
     Connection Plugin
         By default, Ansible talks to remote machines through pluggable
@@ -108,6 +108,9 @@ when a term comes up on the mailing list.
         modules that support it. You can combine it with ``--check`` to get a
         good 'dry run'.  File diffs are normally in unified diff format.
 
+    Distribution server
+        A server, such as Ansible Galaxy or Red Hat Automation Hub where you can distribute your collections and allow others to access these collections. See :ref:`distributing_collections` for a list of distribution server types. Some Ansible features are only available on certain distribution servers.
+
     Executor
         A core software component of Ansible that is the power behind
         :command:`/usr/bin/ansible` directly -- and corresponds to the
@@ -123,12 +126,12 @@ when a term comes up on the mailing list.
         executing the internal :ref:`setup module <setup_module>` on the remote nodes.  You
         never have to call the setup module explicitly, it just runs, but it
         can be disabled to save time if it is not needed or you can tell
-        ansible to collect only a subset of the full facts via the
+        ansible to collect only a subset of the full facts through the
         ``gather_subset:`` option. For the convenience of users who are
         switching from other configuration management systems, the fact module
         will also pull in facts from the :program:`ohai` and :program:`facter`
         tools if they are installed.  These are fact libraries from Chef and
-        Puppet, respectively. (These may also be disabled via
+        Puppet, respectively. (These may also be disabled through
         ``gather_subset:``)
 
     Filter Plugin
@@ -230,7 +233,7 @@ when a term comes up on the mailing list.
     Inventory
         A file (by default, Ansible uses a simple INI format) that describes
         :term:`Hosts <Host>` and :term:`Groups <Group>` in Ansible.  Inventory
-        can also be provided via an :term:`Inventory Script` (sometimes called
+        can also be provided through an :term:`Inventory Script` (sometimes called
         an "External Inventory Script").
 
     Inventory Script
@@ -386,6 +389,10 @@ when a term comes up on the mailing list.
         git on a crontab and then managing the machine locally, using the
         :term:`local connection` plugin.
 
+    Pulp 3 Galaxy
+        A self-hosted distribution server based on the `GalaxyNG codebase <https://galaxyng.netlify.app/>`_, based on Pulp version 3. Use it to find and share your own curated set of content. You can access your content with the ``ansible-galaxy collection`` command.
+
+
     Push Mode
         Push mode is the default mode of Ansible. In fact, it's not really
         a mode at all -- it's just how Ansible works when you aren't thinking
@@ -453,7 +460,7 @@ when a term comes up on the mailing list.
     SSH (Native)
         Native OpenSSH as an Ansible transport is specified with ``-c ssh``
         (or a config file, or a keyword in the :term:`playbook <playbooks>`)
-        and can be useful if wanting to login via Kerberized SSH or using SSH
+        and can be useful if wanting to login through Kerberized SSH or using SSH
         jump hosts, and so on.  In 1.2.1, ``ssh`` will be used by default if the
         OpenSSH binary on the control machine is sufficiently new.
         Previously, Ansible selected ``paramiko`` as a default.  Using

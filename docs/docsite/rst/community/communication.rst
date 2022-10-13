@@ -79,6 +79,8 @@ Our IRC channels may require you to register your IRC nickname. If you receive a
 
 as described in the `libera.chat docs <https://libera.chat/guides/findingchannels>`_.
 
+Our channels record history on the Matrix side. The channel history can be viewed in a browser - all channels will report an appropriate link to ``chat.ansible.im`` in their Chanserv entrymsg upon joining the room. Alternatively, a URL of the form ``https://chat.ansible.im/#/room/# {IRC channel name}:libera.chat`` will also work, for example -  for the #ansible-docs channel it would be `https://app.element.io/#/room/#ansible-docs:libera.chat`.
+
 .. _general_channels:
 
 General channels
@@ -91,7 +93,7 @@ The clickable links will take you directly to the relevant Matrix room in your b
 - `Discussions on developer topics and code related to features or bugs <https://matrix.to/#/#devel:ansible.com>`_ - ``Matrix: #devel:ansible.com | IRC: #ansible-devel``
 - `Discussions on community and collections related topics <https://matrix.to:/#/#community:ansible.com>`_ - ``Matrix: #community:ansible.com | IRC: #ansible-community``
 - `For public community meetings <https://matrix.to/#/#meeting:ansible.im>`_ - ``Matrix: #meeting:ansible.im | IRC: #ansible-meeting``
-   - We will generally announce these on one or more of the above mailing lists. See the `meeting schedule and agenda page <https://github.com/ansible/community/blob/master/meetings/README.md>`_
+   - We will generally announce these on one or more of the above mailing lists. See the `meeting schedule and agenda page <https://github.com/ansible/community/blob/main/meetings/README.md>`_
 
 .. _working_group_list:
 
@@ -117,13 +119,14 @@ Many of our community `Working Groups <https://github.com/ansible/community/wiki
 - `Linode Working Group <https://github.com/ansible/community/wiki/Linode>`_ - Matrix: `#linode:ansible.com <https://matrix.to:/#/#linode:ansible.com>`_ | IRC: ``#ansible-linode``
 - `Molecule Working Group <https://github.com/ansible/community/wiki/Molecule>`_ (`testing platform for Ansible playbooks and roles <https://molecule.readthedocs.io>`_) - Matrix: `#molecule:ansible.im <https://matrix.to:/#/#molecule:ansible.im>`_ | IRC: ``#ansible-molecule``
 - `Network Working Group <https://github.com/ansible/community/wiki/Network>`_ - Matrix: `#network:ansible.com <https://matrix.to:/#/#network:ansible.com>`_ | IRC: ``#ansible-network``
+- `PostgreSQL Working Group <https://github.com/ansible-collections/community.postgresql/wiki/PostgreSQL-Working-Group>`_ - Matrix: `#postgresql:ansible.com <https://matrix.to:/#/#postgresql:ansible.com>`_
 - `Remote Management Working Group <https://github.com/ansible/community/issues/409>`_ - Matrix: `#devel:ansible.com <https://matrix.to:/#/#devel:ansible.com>`_ | IRC: ``#ansible-devel``
 - `Testing Working Group <https://github.com/ansible/community/wiki/Testing>`_  - Matrix: `#devel:ansible.com <https://matrix.to:/#/#devel:ansible.com>`_ | IRC: ``#ansible-devel``
 - `VMware Working Group <https://github.com/ansible/community/wiki/VMware>`_ - Matrix: `#vmware:ansible.com <https://matrix.to:/#/#vmware:ansible.com>`_ | IRC: ``#ansible-vmware``
 - `Windows Working Group <https://github.com/ansible/community/wiki/Windows>`_ - Matrix: `#windows:ansible.com <https://matrix.to:/#/#windows:ansible.com>`_ | IRC: ``#ansible-windows``
 - `Ansible developer tools Group <https://github.com/ansible/community/wiki/Ansible-developer-tools>`_ - Matrix: `#devtools:ansible.com <https://matrix.to/#/#devtools:ansible.com>`_ | IRC: ``#ansible-devtools``
 
-Want to `form a new Working Group <https://github.com/ansible/community/blob/master/WORKING-GROUPS.md>`_?
+Want to `form a new Working Group <https://github.com/ansible/community/blob/main/WORKING-GROUPS.md>`_?
 
 Regional and Language-specific channels
 ---------------------------------------
@@ -136,19 +139,19 @@ Regional and Language-specific channels
 Meetings on chat
 ----------------
 
-The Ansible community holds regular meetings on various topics on Matrix/IRC, and anyone who is interested is invited to participate. For more information about Ansible meetings, consult the `meeting schedule and agenda page <https://github.com/ansible/community/blob/master/meetings/README.md>`_.
+The Ansible community holds regular meetings on various topics on Matrix/IRC, and anyone who is interested is invited to participate. For more information about Ansible meetings, consult the `meeting schedule and agenda page <https://github.com/ansible/community/blob/main/meetings/README.md>`_.
 
 Ansible Community Topics
 ========================
 
-The `Ansible Community Steering Committee <https://github.com/ansible/community-docs/blob/main/ansible_community_steering_committee.rst>`_ uses the `community-topics repository <https://github.com/ansible-community/community-topics/issues>`_ to asynchronously discuss with the Community and vote on Community topics in corresponding issues.
+The `Ansible Community Steering Committee <https://docs.ansible.com/ansible/devel/community/steering/community_steering_committee.html>`_ uses the `community-topics repository <https://github.com/ansible-community/community-topics/issues>`_ to asynchronously discuss with the Community and vote on Community topics in corresponding issues.
 
 Create a new issue in the `repository <https://github.com/ansible-community/community-topics/issues>`_ if you want to discuss an idea that impacts any of the following:
 
 * Ansible Community
 * Community collection best practices and `requirements <https://github.com/ansible-collections/overview/blob/main/collection_requirements.rst>`_
 * `Community collection inclusion policy <https://github.com/ansible-collections/ansible-inclusion/blob/main/README.md>`_
-* `The Community governance <https://github.com/ansible/community-docs/blob/main/ansible_community_steering_committee.rst>`_
+* `The Community governance <https://docs.ansible.com/ansible/devel/community/steering/community_steering_committee.html>`_
 * Other proposals of importance that need the Committee or overall Ansible community attention
 
 Ansible Automation Platform support questions

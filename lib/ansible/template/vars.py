@@ -97,7 +97,15 @@ class AnsibleJ2Vars(Mapping):
             try:
                 value = self._templar.template(variable)
             except AnsibleUndefinedVariable as e:
-                raise AnsibleUndefinedVariable("%s: %s" % (to_native(variable), e.message))
+                # Instead of failing here prematurely, return an Undefined
+                # object which fails only after its first usage allowing us to
+                # do lazy evaluation and passing it into filters/tests that
+                # operate on such objects.
+                return self._templar.environment.undefined(
+                    hint=f"{variable}: {e.message}",
+                    name=varname,
+                    exc=AnsibleUndefinedVariable,
+                )
             except Exception as e:
                 msg = getattr(e, 'message', None) or to_native(e)
                 raise AnsibleError("An unhandled exception occurred while templating '%s'. "
@@ -115,7 +123,6 @@ class AnsibleJ2Vars(Mapping):
 
         # prior to version 2.9, locals contained all of the vars and not just the current
         # local vars so this was not necessary for locals to propagate down to nested includes
-        new_locals = self._locals.copy()
-        new_locals.update(locals)
+        new_locals = self._locals | locals
 
         return AnsibleJ2Vars(self._templar, self._globals, locals=new_locals)

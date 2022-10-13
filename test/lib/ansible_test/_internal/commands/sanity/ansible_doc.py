@@ -4,7 +4,6 @@ from __future__ import annotations
 import collections
 import os
 import re
-import typing as t
 
 from . import (
     DOCUMENTABLE_PLUGINS,
@@ -49,7 +48,7 @@ from ...host_configs import (
 
 class AnsibleDocTest(SanitySingleVersion):
     """Sanity test for ansible-doc."""
-    def filter_targets(self, targets):  # type: (t.List[TestTarget]) -> t.List[TestTarget]
+    def filter_targets(self, targets: list[TestTarget]) -> list[TestTarget]:
         """Return the given list of test targets, filtered to include only those relevant for the test."""
         plugin_paths = [plugin_path for plugin_type, plugin_path in data_context().content.plugin_paths.items() if plugin_type in DOCUMENTABLE_PLUGINS]
 
@@ -59,13 +58,12 @@ class AnsibleDocTest(SanitySingleVersion):
                 and any(is_subdir(target.path, path) for path in plugin_paths)
                 ]
 
-    def test(self, args, targets, python):  # type: (SanityConfig, SanityTargets, PythonConfig) -> TestResult
+    def test(self, args: SanityConfig, targets: SanityTargets, python: PythonConfig) -> TestResult:
         settings = self.load_processor(args)
 
         paths = [target.path for target in targets.include]
 
-        doc_targets = collections.defaultdict(list)  # type: t.Dict[str, t.List[str]]
-        target_paths = collections.defaultdict(dict)  # type: t.Dict[str, t.Dict[str, str]]
+        doc_targets: dict[str, list[str]] = collections.defaultdict(list)
 
         remap_types = dict(
             modules='module',
@@ -75,16 +73,18 @@ class AnsibleDocTest(SanitySingleVersion):
             plugin_type = remap_types.get(plugin_type, plugin_type)
 
             for plugin_file_path in [target.name for target in targets.include if is_subdir(target.path, plugin_path)]:
-                plugin_name = os.path.splitext(os.path.basename(plugin_file_path))[0]
+                plugin_parts = os.path.relpath(plugin_file_path, plugin_path).split(os.path.sep)
+                plugin_name = os.path.splitext(plugin_parts[-1])[0]
 
                 if plugin_name.startswith('_'):
                     plugin_name = plugin_name[1:]
 
-                doc_targets[plugin_type].append(data_context().content.prefix + plugin_name)
-                target_paths[plugin_type][data_context().content.prefix + plugin_name] = plugin_file_path
+                plugin_fqcn = data_context().content.prefix + '.'.join(plugin_parts[:-1] + [plugin_name])
+
+                doc_targets[plugin_type].append(plugin_fqcn)
 
         env = ansible_environment(args, color=False)
-        error_messages = []  # type: t.List[SanityMessage]
+        error_messages: list[SanityMessage] = []
 
         for doc_type in sorted(doc_targets):
             for format_option in [None, '--json']:
@@ -102,7 +102,7 @@ class AnsibleDocTest(SanitySingleVersion):
                     status = ex.status
 
                 if status:
-                    summary = u'%s' % SubprocessError(cmd=cmd, status=status, stderr=stderr)
+                    summary = '%s' % SubprocessError(cmd=cmd, status=status, stderr=stderr)
                     return SanityFailure(self.name, summary=summary)
 
                 if stdout:
@@ -113,7 +113,7 @@ class AnsibleDocTest(SanitySingleVersion):
                     stderr = re.sub(r'\[WARNING]: [^ ]+ [^ ]+ has been removed\n', '', stderr).strip()
 
                 if stderr:
-                    summary = u'Output on stderr from ansible-doc is considered an error.\n\n%s' % SubprocessError(cmd, stderr=stderr)
+                    summary = 'Output on stderr from ansible-doc is considered an error.\n\n%s' % SubprocessError(cmd, stderr=stderr)
                     return SanityFailure(self.name, summary=summary)
 
         if args.explain:

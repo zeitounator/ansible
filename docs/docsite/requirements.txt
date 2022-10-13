@@ -1,9 +1,10 @@
 # pip packages required to build docsite
 # these requirements are as loosely defined as possible
 # if you want known good versions of these dependencies
-# use known_good_reqs.txt instead
+# use test/sanity/code-smell/docs-build.requirements.txt
+# instead
 
-antsibull >= 0.42.0
+antsibull-docs >= 1.0.0, < 2.0.0
 docutils
 jinja2
 pygments >= 2.10.0

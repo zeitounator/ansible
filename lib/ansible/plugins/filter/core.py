@@ -95,14 +95,18 @@ def to_datetime(string, format="%Y-%m-%d %H:%M:%S"):
     return datetime.datetime.strptime(string, format)
 
 
-def strftime(string_format, second=None):
+def strftime(string_format, second=None, utc=False):
     ''' return a date string using string. See https://docs.python.org/3/library/time.html#time.strftime for format '''
+    if utc:
+        timefn = time.gmtime
+    else:
+        timefn = time.localtime
     if second is not None:
         try:
             second = float(second)
         except Exception:
             raise AnsibleFilterError('Invalid value for epoch value (%s)' % second)
-    return time.strftime(string_format, time.localtime(second))
+    return time.strftime(string_format, timefn(second))
 
 
 def quote(a):
@@ -539,7 +543,15 @@ def list_of_dict_key_value_elements_to_dict(mylist, key_name='key', value_name='
     if not is_sequence(mylist):
         raise AnsibleFilterTypeError("items2dict requires a list, got %s instead." % type(mylist))
 
-    return dict((item[key_name], item[value_name]) for item in mylist)
+    try:
+        return dict((item[key_name], item[value_name]) for item in mylist)
+    except KeyError:
+        raise AnsibleFilterTypeError(
+            "items2dict requires each dictionary in the list to contain the keys '%s' and '%s', got %s instead."
+            % (key_name, value_name, mylist)
+        )
+    except TypeError:
+        raise AnsibleFilterTypeError("items2dict requires a list of dictionaries, got %s instead." % mylist)
 
 
 def path_join(paths):
@@ -551,6 +563,21 @@ def path_join(paths):
         return os.path.join(*paths)
     else:
         raise AnsibleFilterTypeError("|path_join expects string or sequence, got %s instead." % type(paths))
+
+
+def commonpath(paths):
+    """
+    Retrieve the longest common path from the given list.
+
+    :param paths: A list of file system paths.
+    :type paths: List[str]
+    :returns: The longest common path.
+    :rtype: str
+    """
+    if not is_sequence(paths):
+        raise AnsibleFilterTypeError("|path_join expects sequence, got %s instead." % type(paths))
+
+    return os.path.commonpath(paths)
 
 
 class FilterModule(object):
@@ -588,6 +615,8 @@ class FilterModule(object):
             'win_basename': partial(unicode_wrap, ntpath.basename),
             'win_dirname': partial(unicode_wrap, ntpath.dirname),
             'win_splitdrive': partial(unicode_wrap, ntpath.splitdrive),
+            'commonpath': commonpath,
+            'normpath': partial(unicode_wrap, os.path.normpath),
 
             # file glob
             'fileglob': fileglob,

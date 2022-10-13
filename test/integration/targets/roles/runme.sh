@@ -17,3 +17,21 @@ set -eux
 
 # ensure role data is merged correctly
 ansible-playbook data_integrity.yml -i ../../inventory "$@"
+
+# ensure role fails when trying to load 'non role' in  _from
+ansible-playbook no_outside.yml -i ../../inventory "$@" > role_outside_output.log 2>&1 || true
+if grep "as it is not inside the expected role path" role_outside_output.log >/dev/null; then
+  echo "Test passed (playbook failed with expected output, output not shown)."
+else
+  echo "Test failed, expected output from playbook failure is missing, output not shown)."
+  exit 1
+fi
+
+# ensure vars scope is correct
+ansible-playbook vars_scope.yml -i ../../inventory "$@"
+
+# test nested includes get parent roles greater than a depth of 3
+[ "$(ansible-playbook 47023.yml -i ../../inventory "$@" | grep '\<\(Default\|Var\)\>' | grep -c 'is defined')" = "2" ]
+
+# ensure import_role called from include_role has the include_role in the dep chain
+ansible-playbook role_dep_chain.yml -i ../../inventory "$@"

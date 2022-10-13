@@ -71,7 +71,8 @@ from ansible.module_utils.compat.version import StrictVersion, LooseVersion
 from ansible.module_utils.basic import to_bytes
 from ansible.module_utils.six import PY3, with_metaclass, string_types
 from ansible.plugins.loader import fragment_loader
-from ansible.utils.plugin_docs import REJECTLIST, add_collection_to_versions_and_dates, add_fragments, get_docstring
+from ansible.plugins.list import IGNORE as REJECTLIST
+from ansible.utils.plugin_docs import add_collection_to_versions_and_dates, add_fragments, get_docstring
 from ansible.utils.version import SemanticVersion
 
 from .module_args import AnsibleModuleImportError, AnsibleModuleNotInitialized, get_argument_spec
@@ -294,13 +295,7 @@ class ModuleValidator(Validator):
     REJECTLIST_FILES = frozenset(('.git', '.gitignore', '.travis.yml',
                                   '.gitattributes', '.gitmodules', 'COPYING',
                                   '__init__.py', 'VERSION', 'test-docs.sh'))
-    REJECTLIST = REJECTLIST_FILES.union(REJECTLIST['MODULE'])
-
-    PS_DOC_REJECTLIST = frozenset((
-        'async_status.ps1',
-        'slurp.ps1',
-        'setup.ps1'
-    ))
+    REJECTLIST = REJECTLIST_FILES.union(REJECTLIST['module'])
 
     # win_dsc is a dynamic arg spec, the docs won't ever match
     PS_ARG_VALIDATE_REJECTLIST = frozenset(('win_dsc.ps1', ))
@@ -405,12 +400,21 @@ class ModuleValidator(Validator):
             return True
         return False
 
+    def _sidecar_doc(self):
+        if self.path.endswith('.yml') or self.path.endswith('.yaml'):
+            return True
+        return False
+
     def _just_docs(self):
         """Module can contain just docs and from __future__ boilerplate
         """
         try:
             for child in self.ast.body:
                 if not isinstance(child, ast.Assign):
+                    # allow string constant expressions (these are docstrings)
+                    if isinstance(child, ast.Expr) and isinstance(child.value, ast.Constant) and isinstance(child.value.value, str):
+                        continue
+
                     # allowed from __future__ imports
                     if isinstance(child, ast.ImportFrom) and child.module == '__future__':
                         for future_import in child.names:
@@ -434,16 +438,16 @@ class ModuleValidator(Validator):
     def _get_base_file(self):
         # In case of module moves, look for the original location
         base_path = self._get_base_branch_module_path()
+        ext = os.path.splitext(base_path or self.path)[1]
 
         command = ['git', 'show', '%s:%s' % (self.base_branch, base_path or self.path)]
-        p = subprocess.Popen(command, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
+        p = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True, check=False)
+
         if int(p.returncode) != 0:
             return None
 
-        t = tempfile.NamedTemporaryFile(delete=False)
-        t.write(stdout)
+        t = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+        t.write(p.stdout)
         t.close()
 
         return t.name
@@ -673,17 +677,8 @@ class ModuleValidator(Validator):
                 )
 
     def _ensure_imports_below_docs(self, doc_info, first_callable):
-        try:
-            min_doc_line = min(
-                [doc_info[key]['lineno'] for key in doc_info if doc_info[key]['lineno']]
-            )
-        except ValueError:
-            # We can't perform this validation, as there are no DOCs provided at all
-            return
-
-        max_doc_line = max(
-            [doc_info[key]['end_lineno'] for key in doc_info if doc_info[key]['end_lineno']]
-        )
+        min_doc_line = min(doc_info[key]['lineno'] for key in doc_info)
+        max_doc_line = max(doc_info[key]['end_lineno'] for key in doc_info)
 
         import_lines = []
 
@@ -813,19 +808,28 @@ class ModuleValidator(Validator):
                 msg='No Ansible.ModuleUtils or C# Ansible util requirements/imports found'
             )
 
-    def _find_ps_docs_py_file(self):
-        if self.object_name in self.PS_DOC_REJECTLIST:
-            return
+    def _find_ps_docs_file(self):
+        sidecar = self._find_sidecar_docs()
+        if sidecar:
+            return sidecar
+
         py_path = self.path.replace('.ps1', '.py')
         if not os.path.isfile(py_path):
             self.reporter.error(
                 path=self.object_path,
-                code='missing-python-doc',
-                msg='Missing python documentation file'
+                code='missing-documentation',
+                msg='No DOCUMENTATION provided'
             )
         return py_path
 
-    def _get_docs(self):
+    def _find_sidecar_docs(self):
+        base_path = os.path.splitext(self.path)[0]
+        for ext in ('.yml', '.yaml'):
+            doc_path = f"{base_path}{ext}"
+            if os.path.isfile(doc_path):
+                return doc_path
+
+    def _get_py_docs(self):
         docs = {
             'DOCUMENTATION': {
                 'value': None,
@@ -902,16 +906,11 @@ class ModuleValidator(Validator):
             )
 
     def _validate_docs(self):
-        doc_info = self._get_docs()
         doc = None
-        documentation_exists = False
-        examples_exist = False
-        returns_exist = False
         # We have three ways of marking deprecated/removed files.  Have to check each one
         # individually and then make sure they all agree
         filename_deprecated_or_removed = False
         deprecated = False
-        removed = False
         doc_deprecated = None  # doc legally might not exist
         routing_says_deprecated = False
 
@@ -928,23 +927,45 @@ class ModuleValidator(Validator):
                 routing_says_deprecated = True
                 deprecated = True
 
-        if not removed:
-            if not bool(doc_info['DOCUMENTATION']['value']):
+        if self._python_module():
+            doc_info = self._get_py_docs()
+        else:
+            doc_info = None
+
+        sidecar_text = None
+        if self._sidecar_doc():
+            sidecar_text = self.text
+        elif sidecar_path := self._find_sidecar_docs():
+            with open(sidecar_path, mode='r', encoding='utf-8') as fd:
+                sidecar_text = fd.read()
+
+        if sidecar_text:
+            sidecar_doc, errors, traces = parse_yaml(sidecar_text, 0, self.name, 'DOCUMENTATION')
+            for error in errors:
                 self.reporter.error(
                     path=self.object_path,
-                    code='missing-documentation',
-                    msg='No DOCUMENTATION provided'
+                    code='documentation-syntax-error',
+                    **error
                 )
-            else:
-                documentation_exists = True
+            for trace in traces:
+                self.reporter.trace(
+                    path=self.object_path,
+                    tracebk=trace
+                )
+
+            doc = sidecar_doc.get('DOCUMENTATION', None)
+            examples_raw = sidecar_doc.get('EXAMPLES', None)
+            examples_lineno = 1
+            returns = sidecar_doc.get('RETURN', None)
+
+        elif doc_info:
+            if bool(doc_info['DOCUMENTATION']['value']):
                 doc, errors, traces = parse_yaml(
                     doc_info['DOCUMENTATION']['value'],
                     doc_info['DOCUMENTATION']['lineno'],
                     self.name, 'DOCUMENTATION'
                 )
-                if doc:
-                    add_collection_to_versions_and_dates(doc, self.collection_name,
-                                                         is_module=self.plugin_type == 'module')
+
                 for error in errors:
                     self.reporter.error(
                         path=self.object_path,
@@ -956,137 +977,15 @@ class ModuleValidator(Validator):
                         path=self.object_path,
                         tracebk=trace
                     )
-                if not errors and not traces:
-                    missing_fragment = False
-                    with CaptureStd():
-                        try:
-                            get_docstring(self.path, fragment_loader, verbose=True,
-                                          collection_name=self.collection_name,
-                                          is_module=self.plugin_type == 'module')
-                        except AssertionError:
-                            fragment = doc['extends_documentation_fragment']
-                            self.reporter.error(
-                                path=self.object_path,
-                                code='missing-doc-fragment',
-                                msg='DOCUMENTATION fragment missing: %s' % fragment
-                            )
-                            missing_fragment = True
-                        except Exception as e:
-                            self.reporter.trace(
-                                path=self.object_path,
-                                tracebk=traceback.format_exc()
-                            )
-                            self.reporter.error(
-                                path=self.object_path,
-                                code='documentation-error',
-                                msg='Unknown DOCUMENTATION error, see TRACE: %s' % e
-                            )
 
-                    if not missing_fragment:
-                        add_fragments(doc, self.object_path, fragment_loader=fragment_loader,
-                                      is_module=self.plugin_type == 'module')
+            examples_raw = doc_info['EXAMPLES']['value']
+            examples_lineno = doc_info['EXAMPLES']['lineno']
 
-                    if 'options' in doc and doc['options'] is None:
-                        self.reporter.error(
-                            path=self.object_path,
-                            code='invalid-documentation-options',
-                            msg='DOCUMENTATION.options must be a dictionary/hash when used',
-                        )
-
-                    if 'deprecated' in doc and doc.get('deprecated'):
-                        doc_deprecated = True
-                        doc_deprecation = doc['deprecated']
-                        documentation_collection = doc_deprecation.get('removed_from_collection')
-                        if documentation_collection != self.collection_name:
-                            self.reporter.error(
-                                path=self.object_path,
-                                code='deprecation-wrong-collection',
-                                msg='"DOCUMENTATION.deprecation.removed_from_collection must be the current collection name: %r vs. %r' % (
-                                    documentation_collection, self.collection_name)
-                            )
-                    else:
-                        doc_deprecated = False
-
-                    if os.path.islink(self.object_path):
-                        # This module has an alias, which we can tell as it's a symlink
-                        # Rather than checking for `module: $filename` we need to check against the true filename
-                        self._validate_docs_schema(
-                            doc,
-                            doc_schema(
-                                os.readlink(self.object_path).split('.')[0],
-                                for_collection=bool(self.collection),
-                                deprecated_module=deprecated,
-                                plugin_type=self.plugin_type,
-                            ),
-                            'DOCUMENTATION',
-                            'invalid-documentation',
-                        )
-                    else:
-                        # This is the normal case
-                        self._validate_docs_schema(
-                            doc,
-                            doc_schema(
-                                self.object_name.split('.')[0],
-                                for_collection=bool(self.collection),
-                                deprecated_module=deprecated,
-                                plugin_type=self.plugin_type,
-                            ),
-                            'DOCUMENTATION',
-                            'invalid-documentation',
-                        )
-
-                    if not self.collection:
-                        existing_doc = self._check_for_new_args(doc)
-                        self._check_version_added(doc, existing_doc)
-
-            if not bool(doc_info['EXAMPLES']['value']):
-                if self.plugin_type in PLUGINS_WITH_EXAMPLES:
-                    self.reporter.error(
-                        path=self.object_path,
-                        code='missing-examples',
-                        msg='No EXAMPLES provided'
-                    )
-            elif self.plugin_type in PLUGINS_WITH_YAML_EXAMPLES:
-                _doc, errors, traces = parse_yaml(doc_info['EXAMPLES']['value'],
-                                                  doc_info['EXAMPLES']['lineno'],
-                                                  self.name, 'EXAMPLES', load_all=True,
-                                                  ansible_loader=True)
-                for error in errors:
-                    self.reporter.error(
-                        path=self.object_path,
-                        code='invalid-examples',
-                        **error
-                    )
-                for trace in traces:
-                    self.reporter.trace(
-                        path=self.object_path,
-                        tracebk=trace
-                    )
-
-            if not bool(doc_info['RETURN']['value']):
-                if self.plugin_type in PLUGINS_WITH_RETURN_VALUES:
-                    if self._is_new_module():
-                        self.reporter.error(
-                            path=self.object_path,
-                            code='missing-return',
-                            msg='No RETURN provided'
-                        )
-                    else:
-                        self.reporter.warning(
-                            path=self.object_path,
-                            code='missing-return-legacy',
-                            msg='No RETURN provided'
-                        )
-            else:
-                data, errors, traces = parse_yaml(doc_info['RETURN']['value'],
-                                                  doc_info['RETURN']['lineno'],
-                                                  self.name, 'RETURN')
-                if data:
-                    add_collection_to_versions_and_dates(data, self.collection_name,
-                                                         is_module=self.plugin_type == 'module', return_docs=True)
-                self._validate_docs_schema(data,
-                                           return_schema(for_collection=bool(self.collection), plugin_type=self.plugin_type),
-                                           'RETURN', 'return-syntax-error')
+            returns = None
+            if bool(doc_info['RETURN']['value']):
+                returns, errors, traces = parse_yaml(doc_info['RETURN']['value'],
+                                                     doc_info['RETURN']['lineno'],
+                                                     self.name, 'RETURN')
 
                 for error in errors:
                     self.reporter.error(
@@ -1100,15 +999,160 @@ class ModuleValidator(Validator):
                         tracebk=trace
                     )
 
+        if doc:
+            add_collection_to_versions_and_dates(doc, self.collection_name,
+                                                 is_module=self.plugin_type == 'module')
+
+            missing_fragment = False
+            with CaptureStd():
+                try:
+                    get_docstring(self.path, fragment_loader=fragment_loader,
+                                  verbose=True,
+                                  collection_name=self.collection_name,
+                                  plugin_type=self.plugin_type)
+                except AssertionError:
+                    fragment = doc['extends_documentation_fragment']
+                    self.reporter.error(
+                        path=self.object_path,
+                        code='missing-doc-fragment',
+                        msg='DOCUMENTATION fragment missing: %s' % fragment
+                    )
+                    missing_fragment = True
+                except Exception as e:
+                    self.reporter.trace(
+                        path=self.object_path,
+                        tracebk=traceback.format_exc()
+                    )
+                    self.reporter.error(
+                        path=self.object_path,
+                        code='documentation-error',
+                        msg='Unknown DOCUMENTATION error, see TRACE: %s' % e
+                    )
+
+            if not missing_fragment:
+                add_fragments(doc, self.object_path, fragment_loader=fragment_loader,
+                              is_module=self.plugin_type == 'module')
+
+            if 'options' in doc and doc['options'] is None:
+                self.reporter.error(
+                    path=self.object_path,
+                    code='invalid-documentation-options',
+                    msg='DOCUMENTATION.options must be a dictionary/hash when used',
+                )
+
+            if 'deprecated' in doc and doc.get('deprecated'):
+                doc_deprecated = True
+                doc_deprecation = doc['deprecated']
+                documentation_collection = doc_deprecation.get('removed_from_collection')
+                if documentation_collection != self.collection_name:
+                    self.reporter.error(
+                        path=self.object_path,
+                        code='deprecation-wrong-collection',
+                        msg='"DOCUMENTATION.deprecation.removed_from_collection must be the current collection name: %r vs. %r' % (
+                            documentation_collection, self.collection_name)
+                    )
+            else:
+                doc_deprecated = False
+
+            if os.path.islink(self.object_path):
+                # This module has an alias, which we can tell as it's a symlink
+                # Rather than checking for `module: $filename` we need to check against the true filename
+                self._validate_docs_schema(
+                    doc,
+                    doc_schema(
+                        os.readlink(self.object_path).split('.')[0],
+                        for_collection=bool(self.collection),
+                        deprecated_module=deprecated,
+                        plugin_type=self.plugin_type,
+                    ),
+                    'DOCUMENTATION',
+                    'invalid-documentation',
+                )
+            else:
+                # This is the normal case
+                self._validate_docs_schema(
+                    doc,
+                    doc_schema(
+                        self.object_name.split('.')[0],
+                        for_collection=bool(self.collection),
+                        deprecated_module=deprecated,
+                        plugin_type=self.plugin_type,
+                    ),
+                    'DOCUMENTATION',
+                    'invalid-documentation',
+                )
+
+            if not self.collection:
+                existing_doc = self._check_for_new_args(doc)
+                self._check_version_added(doc, existing_doc)
+        else:
+            self.reporter.error(
+                path=self.object_path,
+                code='missing-documentation',
+                msg='No DOCUMENTATION provided',
+            )
+
+        if not examples_raw and self.plugin_type in PLUGINS_WITH_EXAMPLES:
+            if self.plugin_type in PLUGINS_WITH_EXAMPLES:
+                self.reporter.error(
+                    path=self.object_path,
+                    code='missing-examples',
+                    msg='No EXAMPLES provided'
+                )
+
+        elif self.plugin_type in PLUGINS_WITH_YAML_EXAMPLES:
+            dummy, errors, traces = parse_yaml(examples_raw,
+                                               examples_lineno,
+                                               self.name, 'EXAMPLES',
+                                               load_all=True,
+                                               ansible_loader=True)
+            for error in errors:
+                self.reporter.error(
+                    path=self.object_path,
+                    code='invalid-examples',
+                    **error
+                )
+            for trace in traces:
+                self.reporter.trace(
+                    path=self.object_path,
+                    tracebk=trace
+                )
+
+        if returns:
+            if returns:
+                add_collection_to_versions_and_dates(
+                    returns,
+                    self.collection_name,
+                    is_module=self.plugin_type == 'module',
+                    return_docs=True)
+            self._validate_docs_schema(
+                returns,
+                return_schema(for_collection=bool(self.collection), plugin_type=self.plugin_type),
+                'RETURN', 'return-syntax-error')
+
+        elif self.plugin_type in PLUGINS_WITH_RETURN_VALUES:
+            if self._is_new_module():
+                self.reporter.error(
+                    path=self.object_path,
+                    code='missing-return',
+                    msg='No RETURN provided'
+                )
+            else:
+                self.reporter.warning(
+                    path=self.object_path,
+                    code='missing-return-legacy',
+                    msg='No RETURN provided'
+                )
+
         # Check for mismatched deprecation
         if not self.collection:
             mismatched_deprecation = True
-            if not (filename_deprecated_or_removed or removed or deprecated or doc_deprecated):
+            if not (filename_deprecated_or_removed or deprecated or doc_deprecated):
                 mismatched_deprecation = False
             else:
                 if (filename_deprecated_or_removed and doc_deprecated):
                     mismatched_deprecation = False
-                if (filename_deprecated_or_removed and removed and not (documentation_exists or examples_exist or returns_exist)):
+                if (filename_deprecated_or_removed and not doc):
                     mismatched_deprecation = False
 
             if mismatched_deprecation:
@@ -2093,7 +2137,8 @@ class ModuleValidator(Validator):
                 # already reported during schema validation
                 continue
 
-            if collection_name != self.collection_name:
+            builtin = self.collection_name == 'ansible.builtin' and collection_name in ('ansible.builtin', None)
+            if not builtin and collection_name != self.collection_name:
                 continue
             if (strict_ansible_version != mod_version_added and
                     (version_added < strict_ansible_version or
@@ -2127,7 +2172,7 @@ class ModuleValidator(Validator):
 
     def validate(self):
         super(ModuleValidator, self).validate()
-        if not self._python_module() and not self._powershell_module():
+        if not self._python_module() and not self._powershell_module() and not self._sidecar_doc():
             self.reporter.error(
                 path=self.object_path,
                 code='invalid-extension',
@@ -2153,7 +2198,8 @@ class ModuleValidator(Validator):
             return
 
         end_of_deprecation_should_be_removed_only = False
-        if self._python_module():
+        doc_info = None
+        if self._python_module() or self._sidecar_doc():
             doc_info, docs = self._validate_docs()
 
             # See if current version => deprecated.removed_in, ie, should be docs only
@@ -2223,18 +2269,18 @@ class ModuleValidator(Validator):
             if self.plugin_type == 'module':
                 self._find_module_utils()
             self._find_has_import()
-            first_callable = self._get_first_callable() or 1000000  # use a bogus "high" line number if no callable exists
-            self._ensure_imports_below_docs(doc_info, first_callable)
+
+            if doc_info:
+                first_callable = self._get_first_callable() or 1000000  # use a bogus "high" line number if no callable exists
+                self._ensure_imports_below_docs(doc_info, first_callable)
+
             if self.plugin_type == 'module':
                 self._check_for_subprocess()
                 self._check_for_os_call()
 
         if self._powershell_module():
-            if self.basename in self.PS_DOC_REJECTLIST:
-                return
-
             self._validate_ps_replacers()
-            docs_path = self._find_ps_docs_py_file()
+            docs_path = self._find_ps_docs_file()
 
             # We can only validate PowerShell arg spec if it is using the new Ansible.Basic.AnsibleModule util
             pattern = r'(?im)^#\s*ansiblerequires\s+\-csharputil\s*Ansible\.Basic'
@@ -2244,7 +2290,7 @@ class ModuleValidator(Validator):
                     self._validate_ansible_module_call(docs)
 
         self._check_gpl3_header()
-        if not self._just_docs() and not end_of_deprecation_should_be_removed_only:
+        if not self._just_docs() and not self._sidecar_doc() and not end_of_deprecation_should_be_removed_only:
             if self.plugin_type == 'module':
                 self._check_interpreter(powershell=self._powershell_module())
             self._check_type_instead_of_isinstance(
@@ -2456,11 +2502,12 @@ class GitCache:
     @staticmethod
     def _git(args):
         cmd = ['git'] + args
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
+        p = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False)
+
         if p.returncode != 0:
-            raise GitError(stderr, p.returncode)
-        return stdout.decode('utf-8').splitlines()
+            raise GitError(p.stderr, p.returncode)
+
+        return p.stdout.splitlines()
 
 
 class GitError(Exception):

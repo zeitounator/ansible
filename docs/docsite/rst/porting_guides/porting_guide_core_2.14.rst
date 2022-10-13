@@ -19,13 +19,26 @@ This document is part of a collection on porting. The complete list of porting g
 Playbook
 ========
 
-No notable changes
+* Variables are now evaluated lazily; only when they are actually used. For example, in ansible-core 2.14 an expression ``{{ defined_variable or undefined_variable }}`` does not fail on ``undefined_variable`` if the first part of ``or`` is evaluated to ``True`` as it is not needed to evaluate the second part. One particular case of a change in behavior to note is the task below which uses the ``undefined`` test. Prior to version 2.14 this would result in a fatal error trying to access the undefined value in the dictionary. In 2.14 the assertion passes as the dictionary is evaluated as undefined through one of its undefined values:
+
+ .. code-block:: yaml
+
+     - assert:
+         that:
+           - some_defined_dict_with_undefined_values is undefined
+       vars:
+         dict_value: 1
+         some_defined_dict_with_undefined_values:
+           key1: value1
+           key2: '{{ dict_value }}'
+           key3: '{{ undefined_dict_value }}'
 
 
 Command Line
 ============
 
-No notable changes
+* Python 3.9 on the controller node is a hard requirement for this release. 
+* At startup the filesystem encoding and locale are checked to verify they are UTF-8. If not, the process exits with an error reporting the errant encoding. If you were previously using the ``C`` or ``POSIX`` locale, you may be able to use ``C.UTF-8``. If you were previously using a locale such as ``en_US.ISO-8859-1``, you may be able to use ``en_US.UTF-8``. For simplicity it may be easiest to export the appropriate locale using the ``LC_ALL`` environment variable. An alternative to modifying your system locale is to run Python in UTF-8 mode; See the `Python documentation <https://docs.python.org/3/using/cmdline.html#envvar-PYTHONUTF8>`_ for more information.
 
 
 Deprecated

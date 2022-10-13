@@ -94,6 +94,9 @@ exclude_patterns = [
     '2.10_index.rst',
     'ansible_index.rst',
     'core_index.rst',
+    'dev_guide/ansible_index.rst',
+    'dev_guide/core_index.rst',
+    'dev_guide/core_branches_and_tags.rst',
     'porting_guides/core_porting_guides.rst',
     'porting_guides/porting_guide_base_2.10.rst',
     'porting_guides/porting_guide_core_*',
@@ -161,7 +164,7 @@ html_context = {
     'github_root_dir': 'devel/lib/ansible',
     'github_cli_version': 'devel/lib/ansible/cli/',
     'current_version': version,
-    'latest_version': '5',
+    'latest_version': '6',
     # list specifically out of order to make latest work
     'available_versions': ('latest', '2.9', 'devel'),
 }
@@ -294,6 +297,7 @@ autoclass_content = 'both'
 intersphinx_mapping = {'python': ('https://docs.python.org/2/', (None, '../python2.inv')),
                        'python3': ('https://docs.python.org/3/', (None, '../python3.inv')),
                        'jinja2': ('http://jinja.palletsprojects.com/', (None, '../jinja2.inv')),
+                       'ansible_6': ('https://docs.ansible.com/ansible/6/', (None, '../ansible_6.inv')),
                        'ansible_5': ('https://docs.ansible.com/ansible/5/', (None, '../ansible_5.inv')),
                        'ansible_4': ('https://docs.ansible.com/ansible/4/', (None, '../ansible_4.inv')),
                        'ansible_3': ('https://docs.ansible.com/ansible/3/', (None, '../ansible_3.inv')),

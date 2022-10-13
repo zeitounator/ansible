@@ -1,12 +1,10 @@
 
-.. _steering_responsibilties:
+.. _steering_responsibilities:
  
 Steering Committee mission and responsibilities
 ===============================================
 
-The Steering Committee mission is to provide continuity, guidance, and
-suggestions to the Ansible community, to ensure the delivery and high quality of the Ansible package. The Committee helps decide the technical direction of the Ansible project and is responsible for approval of new proposals and policies in the community, package, and community collections world, new community collection-inclusion requests, and other technical aspects regarding inclusion and packaging.
-
+The Steering Committee mission is to provide continuity, guidance, and suggestions to the Ansible community to ensure the delivery and high quality of the Ansible package. In addition, the committee helps decide the technical direction of the Ansible project. It is responsible for approving new proposals and policies in the community, package, and community collections world, new community collection-inclusion requests, and other technical aspects regarding inclusion and packaging.
 The Committee should reflect the scope and breadth of the Ansible community.
 
 Steering Committee responsibilities
@@ -35,6 +33,8 @@ The following table lists the current Steering Committee members. See :ref:`stee
   +------------------+---------------+-------------+
   | Name             | GitHub        | Start year  |
   +==================+===============+=============+
+  | Alexei Znamensky | russoz        | 2022        |
+  +------------------+---------------+-------------+
   | Alicia Cozine    | acozine       | 2021        |
   +------------------+---------------+-------------+
   | Andrew Klychkov  | Andersson007  | 2021        |
@@ -49,11 +49,13 @@ The following table lists the current Steering Committee members. See :ref:`stee
   +------------------+---------------+-------------+
   | James Cassell    | jamescassell  | 2021        |
   +------------------+---------------+-------------+
-  | Jill Rouleau     | jillr         | 2021        |
-  +------------------+---------------+-------------+
   | John Barker      | gundalow      | 2021        |
   +------------------+---------------+-------------+
+  | Mario Lenz       | mariolenz     | 2022        |
+  +------------------+---------------+-------------+
   | Markus Bergholz  | markuman      | 2022        |
+  +------------------+---------------+-------------+
+  | Maxwell G        | gotmax23      | 2022        |
   +------------------+---------------+-------------+
   | Sorin Sbarnea    | ssbarnea      | 2021        |
   +------------------+---------------+-------------+
@@ -106,6 +108,26 @@ In case of equal numbers of votes for and against a topic, the chairperson's vot
 
 For votes with more than two options, one choice must have at least half of the votes. If two choices happen to both have half of the votes, the chairperson's vote will break the tie. If no choice has at least half of the votes, the vote choices have to be adjusted so that a majority can be found for a choice in a new vote.
 
+Community topics triage
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The Committee conducts a triage of `community topics <https://github.com/ansible-community/community-topics/issues>`_ periodically (every three to six months).
+
+The triage goals are:
+
+* Sparking interest for forgotten topics.
+* Identifying and closing irrelevant topics, for example, when the reason of the topic does not exist anymore or the topic is out of the Committee responsibilities scope.
+* Identifying and closing topics that the Community are not interested in discussing. As indicators, it can be absence of comments or no activity in comments, at least, for the last six months.
+* Identifying and closing topics that were solved and implemented but not closed (in this case, such a topic can be closed on the spot with a comment that it has been implemented).
+* Identifying topics that have been in pending state for a long time, for example, when it is waiting for actions from someone for several months or when the topics were solved but not implemented.
+
+A person starting the triage:
+
+#. Identifies the topics mentioned above.
+#. Creates a special triage topic containing an enumerated list of the topics-candidates for closing.
+#. Establishes a vote date considering a number of topics, their complexity and comment-history size giving the Community sufficient time to go through and discuss them.
+#. The Community and the Committee vote on each topic-candidate listed in the triage topic whether to close it or keep it open.
+
 Collection inclusion requests workflow
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -115,7 +137,11 @@ When reviewing community collection `inclusion requests <https://github.com/ansi
 
 #. In the course of the review, the Committee member marks items as completed or leaves a comment saying whether the reviewer expects an issue to be addressed or whether it is optional (for example, it could be **MUST FIX:** <what> or **SHOULD FIX:** <what> under an item).
 
-#. For a collection to be included in the Ansible community package, the collection must be reviewed and approved by at least two Committee members.
+#. For a collection to be included in the Ansible community package, the collection:
+
+  * MUST be reviewed and approved by at least two persons, where at least one person is a Steering Committee member.
+  * For a Non-Steering Committee review to be counted for inclusion, it MUST be checked and approved by *another* Steering Committee member.
+  * Reviewers must not be involved significantly in development of the collection. They must declare any potential conflict of interest (for example, being friends/relatives/coworkers of the maintainers/authors, being users of the collection, or having contributed to that collection recently or in the past).
 
 #. After the collection gets two or more Committee member approvals, a Committee member creates a `community topic <https://github.com/ansible-community/community-topics/issues>`_ linked to the corresponding inclusion request. The issue's description says that the collection has been approved by two or more Committee members and establishes a date (a week by default) when the inclusion decision will be considered made. This time period can be used to raise concerns.
 

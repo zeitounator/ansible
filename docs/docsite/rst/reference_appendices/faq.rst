@@ -23,6 +23,15 @@ Where did this specific module go?
 
 IF you are searching for a specific module, you can check the `runtime.yml <https://github.com/ansible/ansible/blob/devel/lib/ansible/config/ansible_builtin_runtime.yml>`_ file, which lists the first destination for each module that we extracted from the main ansible/ansible repository. Some modules have moved again since then. You can also search on `Ansible Galaxy <https://galaxy.ansible.com/>`_ or ask on one of our :ref:`chat channels <communication_irc>`.
 
+.. _slow_install:
+
+How can I speed up Ansible on systems with slow disks?
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Ansible may feel sluggish on systems with slow disks, such as Raspberry PI. See `Ansible might be running slow if libyaml is not available <https://www.jeffgeerling.com/blog/2021/ansible-might-be-running-slow-if-libyaml-not-available>`_ for hints on how to improve this.
+
+
+
 .. _set_environment:
 
 How can I set the PATH or any other environment variable for a task or entire play?
@@ -105,7 +114,9 @@ to the relevant host(s). Consider the following inventory group:
     foo ansible_host=192.0.2.1
     bar ansible_host=192.0.2.2
 
-You can create `group_vars/gatewayed.yml` with the following contents::
+You can create `group_vars/gatewayed.yml` with the following contents:
+
+.. code-block:: yaml
 
     ansible_ssh_common_args: '-o ProxyCommand="ssh -W %h:%p -q user@gateway.example.com"'
 
@@ -157,10 +168,10 @@ want on the system if :command:`/usr/bin/python` on your system does not point t
 Python interpreter.
 
 Some platforms may only have Python 3 installed by default. If it is not installed as
-:command:`/usr/bin/python`, you will need to configure the path to the interpreter via
+:command:`/usr/bin/python`, you will need to configure the path to the interpreter through
 ``ansible_python_interpreter``. Although most core modules will work with Python 3, there may be some
 special purpose ones which do not or you may encounter a bug in an edge case. As a temporary
-workaround you can install Python 2 on the managed host and configure Ansible to use that Python via
+workaround you can install Python 2 on the managed host and configure Ansible to use that Python through
 ``ansible_python_interpreter``. If there's no mention in the module's documentation that the module
 requires Python 2, you can also report a bug on our `bug tracker
 <https://github.com/ansible/ansible/issues>`_ so that the incompatibility can be fixed in a future release.
@@ -214,7 +225,7 @@ If you want to run under Python 3 instead of Python 2 you may want to change tha
     $ source ./ansible/bin/activate
     $ pip install ansible
 
-If you need to use any libraries which are not available via pip (for instance, SELinux Python
+If you need to use any libraries which are not available through pip (for instance, SELinux Python
 bindings on systems such as Red Hat Enterprise Linux or Fedora that have SELinux enabled), then you
 need to install them into the virtualenv. There are two methods:
 
@@ -234,6 +245,22 @@ need to install them into the virtualenv. There are two methods:
       $ cp -v /usr/lib64/python3.*/site-packages/*selinux*.so ./py3-ansible/lib64/python3.*/site-packages/
 
 
+Running on macOS
+----------------
+
+When executing Ansible on a system with macOS as a controller machine one might encounter the following error:
+
+  .. error::
+        +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called. We cannot safely call it or ignore it in the fork() child process. Crashing instead. Set a breakpoint on objc_initializeAfterForkError to debug.
+        ERROR! A worker was found in a dead state
+
+In general the recommended workaround is to set the following environment variable in your shell:
+
+  .. code-block:: shell
+
+        $ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
+
 Running on BSD
 --------------
 
@@ -249,17 +276,23 @@ is likely the problem. There are several workarounds:
 
 * You can set ``remote_tmp`` to a path that will expand correctly with the shell you are using
   (see the plugin documentation for :ref:`C shell<csh_shell>`, :ref:`fish shell<fish_shell>`,
-  and :ref:`Powershell<powershell_shell>`). For example, in the ansible config file you can set::
+  and :ref:`Powershell<powershell_shell>`). For example, in the ansible config file you can set:
+
+  .. code-block:: ini
 
     remote_tmp=$HOME/.ansible/tmp
 
-  In Ansible 2.5 and later, you can also set it per-host in inventory like this::
+  In Ansible 2.5 and later, you can also set it per-host in inventory like this:
+
+  .. code-block:: ini
 
     solaris1 ansible_remote_tmp=$HOME/.ansible/tmp
 
 * You can set :ref:`ansible_shell_executable<ansible_shell_executable>` to the path to a POSIX compatible shell. For
   instance, many Solaris hosts have a POSIX shell located at :file:`/usr/xpg4/bin/sh` so you can set
-  this in inventory like so::
+  this in inventory like so:
+
+  .. code-block:: ini
 
     solaris1 ansible_shell_executable=/usr/xpg4/bin/sh
 
@@ -274,7 +307,7 @@ There are a few common errors that one might run into when trying to execute Ans
 
   To get around this limitation, download and install a later version of `python for z/OS <https://www.rocketsoftware.com/zos-open-source>`_ (2.7.13 or 3.6.1) that represents strings internally as ASCII. Version 2.7.13 is verified to work.
 
-* When ``pipelining = False`` in `/etc/ansible/ansible.cfg` then Ansible modules are transferred in binary mode via sftp however execution of python fails with
+* When ``pipelining = False`` in `/etc/ansible/ansible.cfg` then Ansible modules are transferred in binary mode through sftp however execution of python fails with
 
   .. error::
       SyntaxError: Non-UTF-8 code starting with \'\\x83\' in file /a/user1/.ansible/tmp/ansible-tmp-1548232945.35-274513842609025/AnsiballZ_stat.py on line 1, but no encoding declared; see https://python.org/dev/peps/pep-0263/ for details
@@ -288,6 +321,8 @@ There are a few common errors that one might run into when trying to execute Ans
 
   To fix this set the path to the python installation in your inventory like so::
 
+  .. code-block:: ini
+
     zos1 ansible_python_interpreter=/usr/lpp/python/python-2017-04-12-py27/python27/bin/python
 
 * Start of python fails with ``The module libpython2.7.so was not found.``
@@ -295,7 +330,9 @@ There are a few common errors that one might run into when trying to execute Ans
   .. error::
     EE3501S The module libpython2.7.so was not found.
 
-  On z/OS, you must execute python from gnu bash. If gnu bash is installed at ``/usr/lpp/bash``, you can fix this in your inventory by specifying an ``ansible_shell_executable``::
+  On z/OS, you must execute python from gnu bash. If gnu bash is installed at ``/usr/lpp/bash``, you can fix this in your inventory by specifying an ``ansible_shell_executable``:
+
+  .. code-block:: ini
 
     zos1 ansible_shell_executable=/usr/lpp/bash/bin/bash
 
@@ -308,7 +345,9 @@ It is known that it will not correctly expand the default tmp directory Ansible 
 If you see module failures, this is likely the problem.
 The simple workaround is to set ``remote_tmp`` to a path that will expand correctly (see documentation of the shell plugin you are using for specifics).
 
-For example, in the ansible config file (or via environment variable) you can set::
+For example, in the ansible config file (or through environment variable) you can set:
+
+.. code-block:: ini
 
     remote_tmp=$HOME/.ansible/tmp
 
@@ -404,7 +443,9 @@ file with a list of servers. To do this, you can just access the "$groups" dicti
     {% endfor %}
 
 If you need to access facts about these hosts, for instance, the IP address of each hostname,
-you need to make sure that the facts have been populated. For example, make sure you have a play that talks to db_servers::
+you need to make sure that the facts have been populated. For example, make sure you have a play that talks to db_servers:
+
+.. code-block:: yaml
 
     - hosts:  db_servers
       tasks:
@@ -424,7 +465,7 @@ How do I access a variable name programmatically?
 +++++++++++++++++++++++++++++++++++++++++++++++++
 
 An example may come up where we need to get the ipv4 address of an arbitrary interface, where the interface to be used may be supplied
-via a role parameter or other input. Variable names can be built by adding strings together using "~", like so:
+through a role parameter or other input. Variable names can be built by adding strings together using "~", like so:
 
 .. code-block:: jinja
 
@@ -470,7 +511,9 @@ Anyway, here's the trick:
     {{ hostvars[groups['webservers'][0]]['ansible_eth0']['ipv4']['address'] }}
 
 Notice how we're pulling out the hostname of the first machine of the webservers group. If you are doing this in a template, you
-could use the Jinja2 '#set' directive to simplify this, or in a playbook, you could also use set_fact::
+could use the Jinja2 '#set' directive to simplify this, or in a playbook, you could also use set_fact:
+
+.. code-block:: yaml+jinja
 
     - set_fact: headnode={{ groups['webservers'][0] }}
 
@@ -493,7 +536,9 @@ How do I access shell environment variables?
 
 
 **On controller machine :** Access existing variables from controller use the ``env`` lookup plugin.
-For example, to access the value of the HOME environment variable on the management machine::
+For example, to access the value of the HOME environment variable on the management machine:
+
+.. code-block:: yaml+jinja
 
    ---
    # ...
@@ -501,7 +546,7 @@ For example, to access the value of the HOME environment variable on the managem
         local_home: "{{ lookup('env','HOME') }}"
 
 
-**On target machines :** Environment variables are available via facts in the ``ansible_env`` variable:
+**On target machines :** Environment variables are available through facts in the ``ansible_env`` variable:
 
 .. code-block:: jinja
 
@@ -588,7 +633,9 @@ When is it unsafe to bulk-set task arguments from a variable?
 You can set all of a task's arguments from a dictionary-typed variable. This
 technique can be useful in some dynamic execution scenarios. However, it
 introduces a security risk. We do not recommend it, so Ansible issues a
-warning when you do something like this::
+warning when you do something like this:
+
+.. code-block:: yaml+jinja
 
     #...
     vars:
@@ -638,7 +685,9 @@ How do I keep secret data in my playbook?
 
 If you would like to keep secret data in your Ansible content and still share it publicly or keep things in source control, see :ref:`playbooks_vault`.
 
-If you have a task that you don't want to show the results or command given to it when using -v (verbose) mode, the following task or playbook attribute can be useful::
+If you have a task that you don't want to show the results or command given to it when using -v (verbose) mode, the following task or playbook attribute can be useful:
+
+.. code-block:: yaml+jinja
 
     - name: secret task
       shell: /usr/bin/do_something --value={{ secret_value }}
@@ -646,14 +695,16 @@ If you have a task that you don't want to show the results or command given to i
 
 This can be used to keep verbose output but hide sensitive information from others who would otherwise like to be able to see the output.
 
-The ``no_log`` attribute can also apply to an entire play::
+The ``no_log`` attribute can also apply to an entire play:
+
+.. code-block:: yaml
 
     - hosts: all
       no_log: True
 
 Though this will make the play somewhat difficult to debug. It's recommended that this
 be applied to single tasks only, once a playbook is completed. Note that the use of the
-``no_log`` attribute does not prevent data from being shown when debugging Ansible itself via
+``no_log`` attribute does not prevent data from being shown when debugging Ansible itself through
 the :envvar:`ANSIBLE_DEBUG` environment variable.
 
 
@@ -693,22 +744,15 @@ To determine if a keyword requires ``{{ }}`` or even supports templating, use ``
 this will return documentation on the keyword including a ``template`` field with the values ``explicit`` (requires ``{{ }}``),
 ``implicit`` (assumes ``{{ }}``, so no needed) or ``static`` (no templating supported, all characters will be interpreted literally)
 
-.. _why_no_wheel:
-
-Why don't you ship ansible in wheel format (or other packaging format) ?
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-In most cases it has to do with maintainability. There are many ways to ship software and we do not have
-the resources to release Ansible on every platform.
-In some cases there are technical issues. For example, our dependencies are not present on Python Wheels.
-
 .. _ansible_host_delegated:
 
 How do I get the original ansible_host when I delegate a task?
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 As the documentation states, connection variables are taken from the ``delegate_to`` host so ``ansible_host`` is overwritten,
-but you can still access the original via ``hostvars``::
+but you can still access the original through ``hostvars``:
+
+.. code-block:: yaml+jinja
 
    original_host: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
 
@@ -721,7 +765,9 @@ How do I fix 'protocol error: filename does not match request' when fetching a f
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Since release ``7.9p1`` of OpenSSH there is a `bug <https://bugzilla.mindrot.org/show_bug.cgi?id=2966>`_
-in the SCP client that can trigger this error on the Ansible controller when using SCP as the file transfer mechanism::
+in the SCP client that can trigger this error on the Ansible controller when using SCP as the file transfer mechanism:
+
+.. error::
 
     failed to transfer file to /tmp/ansible/file.txt\r\nprotocol error: filename does not match request
 
@@ -779,14 +825,14 @@ and backups, which most file based modules also support:
 
         - name: run validation, this will change a lot as needed. We assume it returns an error when not passing, use `failed_when` if otherwise.
           shell: run_validation_commmand
-          become: yes
+          become: true
           become_user: requiredbyapp
           environment:
             WEIRD_REQUIREMENT: 1
      rescue:
         - name: restore backup file to original, in the hope the previous configuration was working.
           copy:
-             remote_src: yes
+             remote_src: true
              dest: /x/y/z
              src: "{{ updated['backup_file'] }}"
      always:
@@ -794,6 +840,31 @@ and backups, which most file based modules also support:
           file:
              path: "{{ updated['backup_file'] }}"
              state: absent
+
+.. _jinja2_faqs:
+
+Why does the ``regex_search`` filter return `None` instead of an empty string?
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Until the jinja2 2.10 release, Jinja was only able to return strings, but Ansible needed Python objects in some cases. Ansible uses ``safe_eval`` and  only sends strings that look like certain types of Python objects through this function. With ``regex_search`` that does not find a match, the result (``None``) is converted to the string "None" which is not useful in non-native jinja2.
+
+The following example of a single templating action shows this behavior:
+
+.. code-block:: Jinja
+
+  {{ 'ansible' | regex_search('foobar') }}
+
+This example does not result in a Python ``None``, so Ansible historically converted it to "" (empty string).
+
+The native jinja2 functionality actually allows us to return full Python objects, that are always represented as Python objects everywhere, and as such the result of a single templating action with ``regex_search`` can result in the Python ``None``.
+
+.. note::
+
+  Native jinja2 functionality is not needed when ``regex_search`` is used as an intermediate result that is then compared to the jinja2 ``none`` test.
+
+  .. code-block:: Jinja
+
+     {{ 'ansible' | regex_search('foobar') is none }}
 
 
 .. _docs_contributions:
@@ -803,6 +874,35 @@ How do I submit a change to the documentation?
 
 Documentation for Ansible is kept in the main project git repository, and complete instructions
 for contributing can be found in the docs README `viewable on GitHub <https://github.com/ansible/ansible/blob/devel/docs/docsite/README.md>`_. Thanks!
+
+
+.. _legacy_vs_builtin:
+
+What is the difference between ``ansible.legacy`` and ``ansible.builtin`` collections?
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Neither is a real collection. They are virtually constructed by the core engine (synthetic collections).
+
+The ``ansible.builtin`` collection only refers to plugins that ship with ``ansible-core``.
+
+The ``ansible.legacy`` collection is a superset of  ``ansible.builtin`` (you can reference the plugins from builtin  through ``ansible.legacy``). You also get the ability to
+add 'custom' plugins in the :ref:`configured paths and adjacent directories <ansible_search_path>`, with the ability to override the builtin plugins that have the same name.
+
+Also, ``ansible.legacy`` is what you get by default when you do not specify an FQCN.
+So this:
+
+    .. code-block:: yaml
+
+        - shell: echo hi
+
+Is really equivalent to:
+
+    .. code-block:: yaml
+
+        - ansible.legacy.shell: echo hi
+
+Though, if you do not override the ``shell`` module, you can also just write it as ``ansible.builtin.shell``, since legacy will resolve to the builtin collection.
+
 
 .. _i_dont_see_my_question:
 

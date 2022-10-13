@@ -89,6 +89,7 @@ ansible_facts:
 '''
 
 
+import os
 import platform
 import re
 from ansible.module_utils.basic import AnsibleModule
@@ -104,16 +105,19 @@ class BaseService(object):
 class ServiceScanService(BaseService):
 
     def _list_sysvinit(self, services):
-
-        rc, stdout, stderr = self.module.run_command("%s --status-all 2>&1 | grep -E \"\\[ (\\+|\\-) \\]\"" % self.service_path, use_unsafe_shell=True)
+        rc, stdout, stderr = self.module.run_command("%s --status-all" % self.service_path)
+        if rc == 4 and not os.path.exists('/etc/init.d'):
+            # This function is not intended to run on Red Hat but it could happen
+            # if `chkconfig` is not installed. `service` on RHEL9 returns rc 4
+            # when /etc/init.d is missing, add the extra guard of checking /etc/init.d
+            # instead of solely relying on rc == 4
+            return
         if rc != 0:
             self.module.warn("Unable to query 'service' tool (%s): %s" % (rc, stderr))
-        for line in stdout.split("\n"):
-            line_data = line.split()
-            if len(line_data) < 4:
-                continue  # Skipping because we expected more data
-            service_name = " ".join(line_data[3:])
-            if line_data[1] == "+":
+        p = re.compile(r'^\s*\[ (?P<state>\+|\-) \]\s+(?P<name>.+)$', flags=re.M)
+        for match in p.finditer(stdout):
+            service_name = match.group('name')
+            if match.group('state') == "+":
                 service_state = "running"
             else:
                 service_state = "stopped"
@@ -142,7 +146,6 @@ class ServiceScanService(BaseService):
 
     def _list_rh(self, services):
 
-        # print '%s --status-all | grep -E "is (running|stopped)"' % service_path
         p = re.compile(
             r'(?P<service>.*?)\s+[0-9]:(?P<rl0>on|off)\s+[0-9]:(?P<rl1>on|off)\s+[0-9]:(?P<rl2>on|off)\s+'
             r'[0-9]:(?P<rl3>on|off)\s+[0-9]:(?P<rl4>on|off)\s+[0-9]:(?P<rl5>on|off)\s+[0-9]:(?P<rl6>on|off)')

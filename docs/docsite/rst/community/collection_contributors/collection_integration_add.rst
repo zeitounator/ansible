@@ -36,7 +36,7 @@ We should basically do the following:
 
 1. Clone the collection to the ``~/ansible_collections/community.abstract`` directory on your local machine.
 
-2. From the ``~/ansble_collections/community.abstract`` directory, create directories for the ``setup`` target:
+2. From the ``~/ansible_collections/community.abstract`` directory, create directories for the ``setup`` target:
 
 .. code-block:: bash
 
@@ -63,7 +63,7 @@ This is a very simplified example.
 
 4. Add the target for the module you are testing.
 
-Let's say the module is called ``abstact_service_info``. Create the following directory structure in the target:
+Let's say the module is called ``abstract_service_info``. Create the following directory structure in the target:
 
 .. code-block:: bash
 
@@ -90,7 +90,7 @@ Add the following to ``tests/integration/targets/abstract_service_info/tasks/mai
 .. code-block:: yaml
 
   - name: Fetch info from abstract service
-    anstract_service_info:
+    abstract_service_info:
       host: 127.0.0.1  # We assume the service accepts local connection by default
       port: 1234       # We assume that the service is listening this port by default
     register: result   # This variable will contain the returned JSON including the server version
@@ -108,8 +108,8 @@ Examine the output to see at which step the failure occurred. Investigate the re
 
 8. If the test succeeds, write more tests. Refer to the :ref:`Recommendations on coverage<collection_integration_recommendations>` section for details.
 
-``community.postregesql`` example
-----------------------------------
+``community.postgresql`` example
+--------------------------------
 
 Here is a real example of writing integration tests from scratch for the ``community.postgresql.postgresql_info`` module.
 
@@ -189,7 +189,7 @@ With all of the targets now removed, the current state is as if we do not have a
       creates: /etc/postgresql/12/
 
   - name: Start PostgreSQL service
-    service:
+    ansible.builtin.service:
       name: postgresql
       state: started
 
@@ -213,9 +213,9 @@ That is enough for our very basic example.
 .. code-block:: yaml
 
   - name: Test postgresql_info module
-    become: yes
+    become: true
     become_user: postgres
-    postgresql_info:
+    community.postgresql.postgresql_info:
       login_user: postgres
       login_db: postgres
     register: result
@@ -229,7 +229,7 @@ That is enough for our very basic example.
 
 In the first task, we run the ``postgresql_info`` module to fetch information from the database we installed and launched with the ``setup_postgresql_db`` target. We are saving the values returned by the module into the ``result`` variable.
 
-In the second task, we check the ``result`` variable (what the first task returned) with the ``assert`` module. We expect that, among other things, the result has the version and reports that the system state has not been changed.
+In the second task, we check the ``result`` variable, which is what the first task returned, with the ``assert`` module. We expect that, among other things, the result has the version and reports that the system state has not been changed.
 
 13. Run the tests in the Ubuntu 20.04 docker container:
 

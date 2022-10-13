@@ -14,7 +14,7 @@ import ansible.module_utils.compat.typing as t
 
 from ansible.module_utils.common.sys_info import get_distribution, get_distribution_version, \
     get_distribution_codename
-from ansible.module_utils.facts.utils import get_file_content
+from ansible.module_utils.facts.utils import get_file_content, get_file_lines
 from ansible.module_utils.facts.collector import BaseFactCollector
 
 
@@ -75,7 +75,7 @@ class DistributionFiles:
         {'path': '/etc/sourcemage-release', 'name': 'SMGL'},
         {'path': '/usr/lib/os-release', 'name': 'ClearLinux'},
         {'path': '/etc/coreos/update.conf', 'name': 'Coreos'},
-        {'path': '/etc/flatcar/update.conf', 'name': 'Flatcar'},
+        {'path': '/etc/os-release', 'name': 'Flatcar'},
         {'path': '/etc/os-release', 'name': 'NA'},
     )
 
@@ -334,6 +334,12 @@ class DistributionFiles:
                     rc, out, err = self.module.run_command(cmd)
                     if rc == 0:
                         debian_facts['distribution_release'] = out.strip()
+            debian_version_path = '/etc/debian_version'
+            distdata = get_file_lines(debian_version_path)
+            for line in distdata:
+                m = re.search(r'(\d+)\.(\d+)', line.strip())
+                if m:
+                    debian_facts['distribution_minor_version'] = m.groups()[1]
         elif 'Ubuntu' in data:
             debian_facts['distribution'] = 'Ubuntu'
             # nothing else to do, Ubuntu gets correct info from python functions
@@ -447,14 +453,16 @@ class DistributionFiles:
         flatcar_facts = {}
         distro = get_distribution()
 
-        if distro.lower() == 'flatcar':
-            if not data:
-                return False, flatcar_facts
-            release = re.search("^GROUP=(.*)", data)
-            if release:
-                flatcar_facts['distribution_release'] = release.group(1).strip('"')
-        else:
+        if distro.lower() != 'flatcar':
             return False, flatcar_facts
+
+        if not data:
+            return False, flatcar_facts
+
+        version = re.search("VERSION=(.*)", data)
+        if version:
+            flatcar_facts['distribution_major_version'] = version.group(1).strip('"').split('.')[0]
+            flatcar_facts['distribution_version'] = version.group(1).strip('"')
 
         return True, flatcar_facts
 
@@ -505,10 +513,10 @@ class Distribution(object):
                                 'Ascendos', 'CloudLinux', 'PSBM', 'OracleLinux', 'OVS',
                                 'OEL', 'Amazon', 'Virtuozzo', 'XenServer', 'Alibaba',
                                 'EulerOS', 'openEuler', 'AlmaLinux', 'Rocky', 'TencentOS',
-                                'EuroLinux'],
+                                'EuroLinux', 'Kylin Linux Advanced Server'],
                      'Debian': ['Debian', 'Ubuntu', 'Raspbian', 'Neon', 'KDE neon',
                                 'Linux Mint', 'SteamOS', 'Devuan', 'Kali', 'Cumulus Linux',
-                                'Pop!_OS', 'Parrot', 'Pardus GNU/Linux', 'Uos', 'Deepin'],
+                                'Pop!_OS', 'Parrot', 'Pardus GNU/Linux', 'Uos', 'Deepin', 'OSMC'],
                      'Suse': ['SuSE', 'SLES', 'SLED', 'openSUSE', 'openSUSE Tumbleweed',
                               'SLES_SAP', 'SUSE_LINUX', 'openSUSE Leap'],
                      'Archlinux': ['Archlinux', 'Antergos', 'Manjaro'],

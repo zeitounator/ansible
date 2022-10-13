@@ -33,28 +33,24 @@ Begin your Ansible module with ``#!/usr/bin/python`` - this "shebang" allows ``a
 Copyright and license
 =====================
 
-After the shebang and UTF-8 coding, add a `copyright line <https://www.gnu.org/licenses/gpl-howto.en.html>`_ with the original copyright holder and a license declaration. The license declaration should be ONLY one line, not the full GPL prefix.:
+After the shebang and UTF-8 coding, add a `copyright line <https://www.linuxfoundation.org/blog/copyright-notices-in-open-source-software-projects/>`_ with the original copyright holder and a license declaration. The license declaration should be ONLY one line, not the full GPL prefix.:
 
 .. code-block:: python
 
     #!/usr/bin/python
     # -*- coding: utf-8 -*-
 
-    # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
+    # Copyright: Contributors to the Ansible project
     # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-Major additions to the module (for instance, rewrites) may add additional copyright lines. Any legal review will include the source control history, so an exhaustive copyright header is not necessary.
-Please do not edit the existing copyright year. This simplifies project administration and is unlikely to cause any interesting legal issues.
-When adding a second copyright line for a significant feature or rewrite, add the newer line above the older one:
+Additions to the module (for instance, rewrites) are not permitted to add additional copyright lines other than the default copyright statement if missing:
 
 .. code-block:: python
 
-    #!/usr/bin/python
-    # -*- coding: utf-8 -*-
-
-    # Copyright: (c) 2017, [New Contributor(s)]
-    # Copyright: (c) 2015, [Original Contributor(s)]
-    # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+    # Copyright: Contributors to the Ansible project
+    
+Any legal review will include the source control history, so an exhaustive copyright header is not necessary.
+Please do not include a copyright year. If the existing copyright statement includes a year, do not edit the existing copyright year. Any existing copyright header should not be modified without permission from the copyright author.
 
 .. _ansible_metadata_block:
 
@@ -236,6 +232,7 @@ All fields in the ``DOCUMENTATION`` block are lower-case. All fields are require
   * Details of any important information that doesn't fit in one of the above sections.
   * For example, whether ``check_mode`` is or is not supported.
 
+.. _module_documents_linking:
 
 Linking and other format macros within module documentation
 -----------------------------------------------------------
@@ -253,8 +250,8 @@ content in a uniform way:
 * ``I()`` for option names. For example: ``Required if I(state=present).``  This is italicized in
   the documentation.
 * ``C()`` for files, option values, and inline code. For example: ``If not set the environment variable C(ACME_PASSWORD) will be used.`` or ``Use C(var | foo.bar.my_filter) to transform C(var) into the required format.``  This displays with a mono-space font in the documentation.
-* ``B()`` currently has no standardized usage.  It is displayed in boldface in the documentation.
-* ``HORIZONTALLINE`` is used sparingly as a separator in long descriptions.  It becomes a horizontal rule (the ``<hr>`` html tag) in the documentation.
+* ``B()`` currently has no standardized usage. It is displayed in boldface in the documentation.
+* ``HORIZONTALLINE`` is used sparingly as a separator in long descriptions. It becomes a horizontal rule (the ``<hr>`` html tag) in the documentation.
 
 .. note::
 
@@ -450,4 +447,4 @@ The use of "wildcard" imports such as ``from module_utils.basic import *`` is no
 Testing module documentation
 ============================
 
-To test Ansible documentation locally please :ref:`follow instruction<testing_module_documentation>`.
+To test Ansible documentation locally please :ref:`follow instruction<testing_module_documentation>`. To test documentation in collections, please see :ref:`build_collection_docsite`.

@@ -14,6 +14,7 @@ from .init import (
 from .util import (
     ApplicationError,
     display,
+    report_locale,
 )
 
 from .delegation import (
@@ -46,19 +47,24 @@ from .provisioning import (
     PrimeContainers,
 )
 
+from .config import (
+    TestConfig,
+)
 
-def main(cli_args=None):  # type: (t.Optional[t.List[str]]) -> None
+
+def main(cli_args: t.Optional[list[str]] = None) -> None:
     """Main program function."""
     try:
         os.chdir(data_context().content.root)
         args = parse_args(cli_args)
-        config = args.config(args)  # type: CommonConfig
+        config: CommonConfig = args.config(args)
         display.verbosity = config.verbosity
         display.truncate = config.truncate
         display.redact = config.redact
         display.color = config.color
-        display.info_stderr = config.info_stderr
+        display.fd = sys.stderr if config.display_stderr else sys.stdout
         configure_timeout(config)
+        report_locale(isinstance(config, TestConfig) and not config.delegate)
 
         display.info('RLIMIT_NOFILE: %s' % (CURRENT_RLIMIT_NOFILE,), verbosity=2)
 
@@ -66,7 +72,9 @@ def main(cli_args=None):  # type: (t.Optional[t.List[str]]) -> None
         target_names = None
 
         try:
-            data_context().check_layout()
+            if config.check_layout:
+                data_context().check_layout()
+
             args.func(config)
         except PrimeContainers:
             pass
@@ -82,15 +90,15 @@ def main(cli_args=None):  # type: (t.Optional[t.List[str]]) -> None
 
         if target_names:
             for target_name in target_names:
-                print(target_name)  # info goes to stderr, this should be on stdout
+                print(target_name)  # display goes to stderr, this should be on stdout
 
         display.review_warnings()
         config.success = True
     except ApplicationWarning as ex:
-        display.warning(u'%s' % ex)
+        display.warning('%s' % ex)
         sys.exit(0)
     except ApplicationError as ex:
-        display.error(u'%s' % ex)
+        display.fatal('%s' % ex)
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(2)

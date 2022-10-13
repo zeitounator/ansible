@@ -111,14 +111,14 @@ For this very reason, the modules need to run on the local Ansible controller (o
 
 Gathering facts
 ```````````````
-Because we run the modules on the Ansible controller gathering facts will not work. That is why when using these ACI modules it is mandatory to disable facts gathering. You can do this globally in your ``ansible.cfg`` or by adding ``gather_facts: no`` to every play.
+Because we run the modules on the Ansible controller gathering facts will not work. That is why when using these ACI modules it is mandatory to disable facts gathering. You can do this globally in your ``ansible.cfg`` or by adding ``gather_facts: false`` to every play.
 
 .. code-block:: yaml
    :emphasize-lines: 3
 
     - name: Another play in my playbook
       hosts: my-apic-1
-      gather_facts: no
+      gather_facts: false
       tasks:
       - name: Create a tenant
         aci_tenant:
@@ -235,7 +235,7 @@ By default, if an environment variable ``<protocol>_proxy`` is set on the target
 
 HTTP redirects can redirect from HTTP to HTTPS so ensure that the proxy environment for both protocols is correctly configured.
 
-If proxy support is not needed, but the system may have it configured nevertheless, use the parameter ``use_proxy: no`` to avoid accidental system proxy usage.
+If proxy support is not needed, but the system may have it configured nevertheless, use the parameter ``use_proxy: false`` to avoid accidental system proxy usage.
 
 .. hint:: Selective proxy support using the ``no_proxy`` environment variable is also supported.
 
@@ -653,7 +653,7 @@ You will find our roadmap, an overview of open ACI issues and pull-requests, and
        The Ansible ACI community wiki page, includes roadmap, ideas and development documentation.
    :ref:`network_guide`
        A detailed guide on how to use Ansible for automating network infrastructure.
-   `Network Working Group <https://github.com/ansible/community/tree/master/group-network>`_
+   `Network Working Group <https://github.com/ansible/community/tree/main/group-network>`_
        The Ansible Network community page, includes contact information and meeting information.
    `User Mailing List <https://groups.google.com/group/ansible-project>`_
        Have a question?  Stop by the google group!

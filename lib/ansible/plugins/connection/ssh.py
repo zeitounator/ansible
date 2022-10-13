@@ -22,6 +22,8 @@ DOCUMENTATION = '''
     notes:
         - Many options default to C(None) here but that only means we do not override the SSH tool's defaults and/or configuration.
           For example, if you specify the port in this plugin it will override any C(Port) entry in your C(.ssh/config).
+        - The ssh CLI tool uses return code 255 as a 'connection error', this can conflict with commands/tools that
+          also return 255 as an error code and will look like an 'unreachable' condition or 'connection error' to this plugin.
     options:
       host:
           description: Hostname/IP to connect to.
@@ -174,7 +176,10 @@ DOCUMENTATION = '''
             - name: ssh_extra_args
           default: ''
       reconnection_retries:
-          description: Number of attempts to connect.
+          description:
+            - Number of attempts to connect.
+            - Ansible retries connections only if it gets an SSH error with a return code of 255.
+            - Any errors with return codes other than 255 indicate an issue with program execution.
           default: 0
           type: integer
           env:
@@ -287,6 +292,7 @@ DOCUMENTATION = '''
         description:
             - "Preferred method to use when transferring files over ssh"
             - Setting to 'smart' (default) will try them in order, until one succeeds or they all fail
+            - For OpenSSH >=9.0 you must add an additional option to enable scp (scp_extra_args="-O")
             - Using 'piped' creates an ssh pipe with C(dd) on either side to copy the data
         choices: ['sftp', 'scp', 'piped', 'smart']
         env: [{name: ANSIBLE_SSH_TRANSFER_METHOD}]
@@ -305,6 +311,7 @@ DOCUMENTATION = '''
           - "Preferred method to use when transferring files over SSH."
           - When set to I(smart), Ansible will try them until one succeeds or they all fail.
           - If set to I(True), it will force 'scp', if I(False) it will use 'sftp'.
+          - For OpenSSH >=9.0 you must add an additional option to enable scp (scp_extra_args="-O")
           - This setting will overridden by ssh_transfer_method if set.
         env: [{name: ANSIBLE_SCP_IF_SSH}]
         ini:
@@ -386,10 +393,12 @@ from ansible.utils.path import unfrackpath, makedirs_safe
 
 display = Display()
 
-
+# error messages that indicate 255 return code is not from ssh itself.
 b_NOT_SSH_ERRORS = (b'Traceback (most recent call last):',  # Python-2.6 when there's an exception
-                                                            # while invoking a script via -m
-                    b'PHP Parse error:',  # Php always returns error 255
+                                                            #   while invoking a script via -m
+                    b'PHP Parse error:',                    # Php always returns with error
+                    b'chmod: invalid mode',                 # chmod, but really only on AIX
+                    b'chmod: A flag or octal number is not correct.',    # chmod, other AIX
                     )
 
 SSHPASS_AVAILABLE = None
@@ -434,7 +443,8 @@ def _handle_error(remaining_retries, command, return_tuple, no_log, host, displa
     if return_tuple[0] == 255:
         SSH_ERROR = True
         for signature in b_NOT_SSH_ERRORS:
-            if signature in return_tuple[1]:
+            # 1 == stout, 2 == stderr
+            if signature in return_tuple[1] or signature in return_tuple[2]:
                 SSH_ERROR = False
                 break
 
@@ -698,7 +708,7 @@ class Connection(ConnectionBase):
                 self._add_args(b_command, b_args, u'disable batch mode for sshpass')
             b_command += [b'-b', b'-']
 
-        if self._play_context.verbosity > 3:
+        if display.verbosity > 3:
             b_command.append(b'-vvv')
 
         # Next, we add ssh_args

@@ -268,7 +268,7 @@ mode:
     description: Permissions of the target, after execution.
     returned: success
     type: str
-    sample: 0644
+    sample: "0644"
 size:
     description: Size of the target, after execution.
     returned: success
@@ -469,7 +469,7 @@ def copy_left_only(src, dest, module):
             b_dest_item_path = to_bytes(dest_item_path, errors='surrogate_or_strict')
 
             if os.path.islink(b_src_item_path) and os.path.isdir(b_src_item_path) and local_follow is True:
-                shutil.copytree(b_src_item_path, b_dest_item_path, symlinks=not(local_follow))
+                shutil.copytree(b_src_item_path, b_dest_item_path, symlinks=not local_follow)
                 chown_recursive(b_dest_item_path, module)
 
             if os.path.islink(b_src_item_path) and os.path.isdir(b_src_item_path) and local_follow is False:
@@ -497,7 +497,7 @@ def copy_left_only(src, dest, module):
                     module.set_group_if_different(b_dest_item_path, group, False)
 
             if not os.path.islink(b_src_item_path) and os.path.isdir(b_src_item_path):
-                shutil.copytree(b_src_item_path, b_dest_item_path, symlinks=not(local_follow))
+                shutil.copytree(b_src_item_path, b_dest_item_path, symlinks=not local_follow)
                 chown_recursive(b_dest_item_path, module)
 
             changed = True
@@ -518,7 +518,7 @@ def copy_common_dirs(src, dest, module):
             changed = True
 
         # recurse into subdirectory
-        changed = changed or copy_common_dirs(os.path.join(src, item), os.path.join(dest, item), module)
+        changed = copy_common_dirs(os.path.join(src, item), os.path.join(dest, item), module) or changed
     return changed
 
 
@@ -616,6 +616,7 @@ def main():
                 module.fail_json(**e.results)
 
             os.makedirs(b_dirname)
+            changed = True
             directory_args = module.load_file_common_arguments(module.params)
             directory_mode = module.params["directory_mode"]
             if directory_mode is not None:
@@ -744,8 +745,6 @@ def main():
             except (IOError, OSError):
                 module.fail_json(msg="failed to copy: %s to %s" % (src, dest), traceback=traceback.format_exc())
         changed = True
-    else:
-        changed = False
 
     # If neither have checksums, both src and dest are directories.
     if checksum_src is None and checksum_dest is None:
@@ -766,7 +765,7 @@ def main():
                 b_dest = to_bytes(os.path.join(b_dest, b_basename), errors='surrogate_or_strict')
                 b_src = to_bytes(os.path.join(module.params['src'], ""), errors='surrogate_or_strict')
                 if not module.check_mode:
-                    shutil.copytree(b_src, b_dest, symlinks=not(local_follow))
+                    shutil.copytree(b_src, b_dest, symlinks=not local_follow)
                 chown_recursive(dest, module)
                 changed = True
 
@@ -775,7 +774,7 @@ def main():
                 b_dest = to_bytes(os.path.join(b_dest, b_basename), errors='surrogate_or_strict')
                 b_src = to_bytes(os.path.join(module.params['src'], ""), errors='surrogate_or_strict')
                 if not module.check_mode and not os.path.exists(b_dest):
-                    shutil.copytree(b_src, b_dest, symlinks=not(local_follow))
+                    shutil.copytree(b_src, b_dest, symlinks=not local_follow)
                     changed = True
                     chown_recursive(dest, module)
                 if module.check_mode and not os.path.exists(b_dest):
@@ -793,13 +792,12 @@ def main():
                 b_dest = to_bytes(os.path.join(b_dest, b_basename), errors='surrogate_or_strict')
                 if not module.check_mode and not os.path.exists(b_dest):
                     os.makedirs(b_dest)
+                    changed = True
                     b_src = to_bytes(os.path.join(module.params['src'], ""), errors='surrogate_or_strict')
                     diff_files_changed = copy_diff_files(b_src, b_dest, module)
                     left_only_changed = copy_left_only(b_src, b_dest, module)
                     common_dirs_changed = copy_common_dirs(b_src, b_dest, module)
                     owner_group_changed = chown_recursive(b_dest, module)
-                    if diff_files_changed or left_only_changed or common_dirs_changed or owner_group_changed:
-                        changed = True
                 if module.check_mode and not os.path.exists(b_dest):
                     changed = True
 

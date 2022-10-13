@@ -21,6 +21,7 @@ from ...util import (
     ANSIBLE_TEST_DATA_ROOT,
     display,
     is_subdir,
+    str_to_version,
     SubprocessError,
     ANSIBLE_LIB_ROOT,
     ANSIBLE_TEST_TARGET_ROOT,
@@ -92,7 +93,7 @@ class TestContext:
     module_utils = 'module_utils'
 
 
-def command_units(args):  # type: (UnitsConfig) -> None
+def command_units(args: UnitsConfig) -> None:
     """Run unit tests."""
     handle_layout_messages(data_context().content.unit_messages)
 
@@ -102,7 +103,7 @@ def command_units(args):  # type: (UnitsConfig) -> None
 
     paths = [target.path for target in include]
 
-    content_config = get_content_config()
+    content_config = get_content_config(args)
     supported_remote_python_versions = content_config.modules.python_versions
 
     if content_config.modules.controller_only:
@@ -127,8 +128,8 @@ def command_units(args):  # type: (UnitsConfig) -> None
     if not paths:
         raise AllTargetsSkipped()
 
-    targets = t.cast(t.List[PosixConfig], args.targets)
-    target_versions = {target.python.version: target for target in targets}  # type: t.Dict[str, PosixConfig]
+    targets = t.cast(list[PosixConfig], args.targets)
+    target_versions: dict[str, PosixConfig] = {target.python.version: target for target in targets}
     skipped_versions = args.host_settings.skipped_python_versions
     warn_versions = []
 
@@ -220,7 +221,7 @@ def command_units(args):  # type: (UnitsConfig) -> None
             display.warning("Skipping unit tests on Python %s because it could not be found." % version)
             continue
 
-        target_profiles = {profile.config.python.version: profile for profile in host_state.targets(PosixProfile)}  # type: t.Dict[str, PosixProfile]
+        target_profiles: dict[str, PosixProfile] = {profile.config.python.version: profile for profile in host_state.targets(PosixProfile)}
         target_profile = target_profiles[version]
 
         final_candidates = [(test_context, target_profile.python, paths, env) for test_context, paths, env in test_candidates]
@@ -235,6 +236,20 @@ def command_units(args):  # type: (UnitsConfig) -> None
         sys.exit()
 
     for test_context, python, paths, env in test_sets:
+        # When using pytest-mock, make sure that features introduced in Python 3.8 are available to older Python versions.
+        # This is done by enabling the mock_use_standalone_module feature, which forces use of mock even when unittest.mock is available.
+        # Later Python versions have not introduced additional unittest.mock features, so use of mock is not needed as of Python 3.8.
+        # If future Python versions introduce new unittest.mock features, they will not be available to older Python versions.
+        # Having the cutoff at Python 3.8 also eases packaging of ansible-core since no supported controller version requires the use of mock.
+        #
+        # NOTE: This only affects use of pytest-mock.
+        #       Collection unit tests may directly import mock, which will be provided by ansible-test when it installs requirements using pip.
+        #       Although mock is available for ansible-core unit tests, they should import units.compat.mock instead.
+        if str_to_version(python.version) < (3, 8):
+            config_name = 'legacy.ini'
+        else:
+            config_name = 'default.ini'
+
         cmd = [
             'pytest',
             '--forked',
@@ -243,7 +258,7 @@ def command_units(args):  # type: (UnitsConfig) -> None
             '--color',
             'yes' if args.color else 'no',
             '-p', 'no:cacheprovider',
-            '-c', os.path.join(ANSIBLE_TEST_DATA_ROOT, 'pytest.ini'),
+            '-c', os.path.join(ANSIBLE_TEST_DATA_ROOT, 'pytest', 'config', config_name),
             '--junit-xml', os.path.join(ResultType.JUNIT.path, 'python%s-%s-units.xml' % (python.version, test_context)),
             '--strict-markers',  # added in pytest 4.5.0
             '--rootdir', data_context().content.root,
@@ -275,14 +290,14 @@ def command_units(args):  # type: (UnitsConfig) -> None
         display.info('Unit test %s with Python %s' % (test_context, python.version))
 
         try:
-            cover_python(args, python, cmd, test_context, env)
+            cover_python(args, python, cmd, test_context, env, capture=False)
         except SubprocessError as ex:
             # pytest exits with status code 5 when all tests are skipped, which isn't an error for our use case
             if ex.status != 5:
                 raise
 
 
-def get_units_ansible_python_path(args, test_context):  # type: (UnitsConfig, str) -> str
+def get_units_ansible_python_path(args: UnitsConfig, test_context: str) -> str:
     """
     Return a directory usable for PYTHONPATH, containing only the modules and module_utils portion of the ansible package.
     The temporary directory created will be cached for the lifetime of the process and cleaned up at exit.

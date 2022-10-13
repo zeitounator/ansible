@@ -44,7 +44,7 @@ Playbook
 Python Interpreter Discovery
 ============================
 
-The default value of ``INTERPRETER_PYTHON_FALLBACK`` changed to ``auto``. The list of Python interpreters in ``INTERPRETER_PYTHON_FALLBACK`` changed to prefer Python 3 over Python 2. The combination of these two changes means the new default behavior is to quietly prefer Python 3 over Python 2 on remote hosts. Previously a deprecation warning was issued in situations where interpreter discovery would have used Python 3 but the interpreter was set to ``/usr/bin/python``.
+The default value of ``INTERPRETER_PYTHON`` changed to ``auto``. The list of Python interpreters in ``INTERPRETER_PYTHON_FALLBACK`` changed to prefer Python 3 over Python 2. The combination of these two changes means the new default behavior is to quietly prefer Python 3 over Python 2 on remote hosts. Previously a deprecation warning was issued in situations where interpreter discovery would have used Python 3 but the interpreter was set to ``/usr/bin/python``.
 
 ``INTERPRETER_PYTHON_FALLBACK`` can be changed from the default list of interpreters by setting the ``ansible_interpreter_python_fallback`` variable.
 
@@ -112,7 +112,7 @@ Plugins
 
 * ``unique`` filter with Jinja2 < 2.10 is case-sensitive and now raise coherently an error if ``case_sensitive=False`` instead of when ``case_sensitive=True``.
 * Set theory filters (``intersect``, ``difference``, ``symmetric_difference`` and ``union``) are now case-sensitive. Explicitly use ``case_sensitive=False`` to keep previous behavior. Note: with Jinja2 < 2.10, the filters were already case-sensitive by default.
-* ``password_hash``` now uses ``passlib`` defaults when an option is unspecified, e.g. ``bcrypt_sha256`` now default to the "2b" format and if the "2a" format is required it must be specified.
+* ``password_hash``` now uses ``passlib`` defaults when an option is unspecified, for example ``bcrypt_sha256`` now default to the "2b" format and if the "2a" format is required it must be specified.
 
 Porting custom scripts
 ======================

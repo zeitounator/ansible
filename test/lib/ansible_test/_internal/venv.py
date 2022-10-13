@@ -1,6 +1,7 @@
 """Virtual environment management."""
 from __future__ import annotations
 
+import collections.abc as c
 import json
 import os
 import pathlib
@@ -20,6 +21,7 @@ from .util import (
     remove_tree,
     ApplicationError,
     str_to_version,
+    raw_command,
 )
 
 from .util_common import (
@@ -39,9 +41,9 @@ from .python_requirements import (
 
 
 def get_virtual_python(
-        args,  # type: EnvironmentConfig
-        python,  # type: VirtualPythonConfig
-):  # type: (...) -> VirtualPythonConfig
+        args: EnvironmentConfig,
+        python: VirtualPythonConfig,
+) -> VirtualPythonConfig:
     """Create a virtual environment for the given Python and return the path to its root."""
     if python.system_site_packages:
         suffix = '-ssp'
@@ -76,12 +78,12 @@ def get_virtual_python(
     return virtual_environment_python
 
 
-def create_virtual_environment(args,  # type: EnvironmentConfig
-                               python,  # type: PythonConfig
-                               path,  # type: str
-                               system_site_packages=False,  # type: bool
-                               pip=False,  # type: bool
-                               ):  # type: (...) -> bool
+def create_virtual_environment(args: EnvironmentConfig,
+                               python: PythonConfig,
+                               path: str,
+                               system_site_packages: bool = False,
+                               pip: bool = False,
+                               ) -> bool:
     """Create a virtual environment using venv or virtualenv for the requested Python version."""
     if not os.path.exists(python.path):
         # the requested python version could not be found
@@ -92,7 +94,7 @@ def create_virtual_environment(args,  # type: EnvironmentConfig
         # creating a virtual environment using 'venv' when running in a virtual environment created by 'virtualenv' results
         # in a copy of the original virtual environment instead of creation of a new one
         # avoid this issue by only using "real" python interpreters to invoke 'venv'
-        for real_python in iterate_real_pythons(args, python.version):
+        for real_python in iterate_real_pythons(python.version):
             if run_venv(args, real_python, system_site_packages, pip, path):
                 display.info('Created Python %s virtual environment using "venv": %s' % (python.version, path), verbosity=1)
                 return True
@@ -128,7 +130,7 @@ def create_virtual_environment(args,  # type: EnvironmentConfig
     return False
 
 
-def iterate_real_pythons(args, version):  # type: (EnvironmentConfig, str) -> t.Iterable[str]
+def iterate_real_pythons(version: str) -> c.Iterable[str]:
     """
     Iterate through available real python interpreters of the requested version.
     The current interpreter will be checked and then the path will be searched.
@@ -138,7 +140,7 @@ def iterate_real_pythons(args, version):  # type: (EnvironmentConfig, str) -> t.
 
     if version_info == sys.version_info[:len(version_info)]:
         current_python = sys.executable
-        real_prefix = get_python_real_prefix(args, current_python)
+        real_prefix = get_python_real_prefix(current_python)
 
         if real_prefix:
             current_python = find_python(version, os.path.join(real_prefix, 'bin'))
@@ -159,7 +161,7 @@ def iterate_real_pythons(args, version):  # type: (EnvironmentConfig, str) -> t.
     if found_python == current_python:
         return
 
-    real_prefix = get_python_real_prefix(args, found_python)
+    real_prefix = get_python_real_prefix(found_python)
 
     if real_prefix:
         found_python = find_python(version, os.path.join(real_prefix, 'bin'))
@@ -168,22 +170,22 @@ def iterate_real_pythons(args, version):  # type: (EnvironmentConfig, str) -> t.
         yield found_python
 
 
-def get_python_real_prefix(args, python_path):  # type: (EnvironmentConfig, str) -> t.Optional[str]
+def get_python_real_prefix(python_path: str) -> t.Optional[str]:
     """
     Return the real prefix of the specified interpreter or None if the interpreter is not a virtual environment created by 'virtualenv'.
     """
     cmd = [python_path, os.path.join(os.path.join(ANSIBLE_TEST_TARGET_TOOLS_ROOT, 'virtualenvcheck.py'))]
-    check_result = json.loads(run_command(args, cmd, capture=True, always=True)[0])
+    check_result = json.loads(raw_command(cmd, capture=True)[0])
     real_prefix = check_result['real_prefix']
     return real_prefix
 
 
-def run_venv(args,  # type: EnvironmentConfig
-             run_python,  # type: str
-             system_site_packages,  # type: bool
-             pip,  # type: bool
-             path,  # type: str
-             ):  # type: (...) -> bool
+def run_venv(args: EnvironmentConfig,
+             run_python: str,
+             system_site_packages: bool,
+             pip: bool,
+             path: str,
+             ) -> bool:
     """Create a virtual environment using the 'venv' module. Not available on Python 2.x."""
     cmd = [run_python, '-m', 'venv']
 
@@ -208,13 +210,13 @@ def run_venv(args,  # type: EnvironmentConfig
     return True
 
 
-def run_virtualenv(args,  # type: EnvironmentConfig
-                   run_python,  # type: str
-                   env_python,  # type: str
-                   system_site_packages,  # type: bool
-                   pip,  # type: bool
-                   path,  # type: str
-                   ):  # type: (...) -> bool
+def run_virtualenv(args: EnvironmentConfig,
+                   run_python: str,
+                   env_python: str,
+                   system_site_packages: bool,
+                   pip: bool,
+                   path: str,
+                   ) -> bool:
     """Create a virtual environment using the 'virtualenv' module."""
     # always specify which interpreter to use to guarantee the desired interpreter is provided
     # otherwise virtualenv may select a different interpreter than the one running virtualenv
@@ -244,7 +246,7 @@ def run_virtualenv(args,  # type: EnvironmentConfig
     return True
 
 
-def get_virtualenv_version(args, python):  # type: (EnvironmentConfig, str) -> t.Optional[t.Tuple[int, ...]]
+def get_virtualenv_version(args: EnvironmentConfig, python: str) -> t.Optional[tuple[int, ...]]:
     """Get the virtualenv version for the given python interpreter, if available, otherwise return None."""
     try:
         cache = get_virtualenv_version.cache  # type: ignore[attr-defined]

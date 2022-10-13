@@ -56,6 +56,7 @@ ifeq ($(findstring error,$(MAJOR_VERSION)), error)
 $(error "version_helper failed to determine major version")
 endif
 
+
 assertrst:
 ifndef rst
 	$(error specify document or pattern with rst=somefile.rst)
@@ -67,14 +68,15 @@ docs: htmldocs
 
 coredocs: core_htmldocs
 
+
 generate_rst: collections_meta config cli keywords plugins testing
-core_generate_rst: collections_meta config cli keywords base_plugins testing
+core_generate_rst: collections_meta config cli keywords core_plugins testing
 
 # At the moment localizing the plugins and collections is not required for the ongoing
 # localisation effort. It will come at a later time.
 gettext_generate_rst: collections_meta config cli keywords testing
 
-# The following two symlinks are necessary to produce two different docsets
+# The following symlinks are necessary to produce two different docsets
 # from the same set of rst files (Ansible the package docs, and core docs).
 # Symlink the relevant index into place for building Ansible docs
 ansible_structure:
@@ -83,6 +85,7 @@ ansible_structure:
 	if python -c "import sys, packaging.version as p; sys.exit(not p.Version('$(MAJOR_VERSION)') >  p.Version('2.10'))" ; then \
 		echo "Creating symlinks in ansible_structure"; \
 		ln -sf ../rst/ansible_index.rst rst/index.rst; \
+		ln -sf ../dev_guide/ansible_index.rst rst/dev_guide/index.rst; \
 		ln -sf ../sphinx_conf/ansible_conf.py rst/conf.py; \
 	else \
 		echo 'Creating symlinks for older ansible in ansible_structure'; \
@@ -94,12 +97,19 @@ ansible_structure:
 core_structure:
 	@echo "Creating symlinks in core_structure"
 	-ln -sf ../rst/core_index.rst rst/index.rst
+	-ln -sf ../dev_guide/core_index.rst rst/dev_guide/index.rst
+# set up the correct core conf.py to use for English vs a translated language
+ifdef LANGOPTS
+	-ln -sf ../sphinx_conf/core_lang_conf.py rst/conf.py
+else
 	-ln -sf ../sphinx_conf/core_conf.py rst/conf.py
+endif
 
-# Symlink the relevant index into place for building core docs
+# Symlink the relevant index into place for building core translated docs
 gettext_structure:
 	@echo "Creating symlinks in gettext_structure"
 	-ln -sf ../rst/core_index.rst rst/index.rst
+	-ln -sf ../rst/dev_guide/core_index.rst rst/dev_guide/index.rst
 	-ln -sf ../sphinx_conf/all_conf.py rst/conf.py
 
 gettext: gettext_structure gettext_generate_rst
@@ -200,8 +210,8 @@ plugins:
 	$(PLUGIN_FORMATTER) full -o rst $(ANSIBLE_VERSION_ARGS) $(EXTRA_PLUGIN_FORMATTER_ARGS) $(PLUGIN_ARGS)
 
 # This only builds the plugin docs included with ansible-core
-base_plugins:
-	$(PLUGIN_FORMATTER) base -o rst $(EXTRA_PLUGIN_FORMATTER_ARGS) $(PLUGIN_ARGS)
+core_plugins:
+	$(PLUGIN_FORMATTER) core -o rst $(EXTRA_PLUGIN_FORMATTER_ARGS) $(PLUGIN_ARGS)
 
 testing:
 	$(TESTING_FORMATTER)

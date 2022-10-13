@@ -197,10 +197,13 @@ class VariableManager:
             basedirs = [self._loader.get_basedir()]
 
         if play:
-            # first we compile any vars specified in defaults/main.yml
-            # for all roles within the specified play
-            for role in play.get_roles():
-                all_vars = _combine_and_track(all_vars, role.get_default_vars(), "role '%s' defaults" % role.name)
+            if not C.DEFAULT_PRIVATE_ROLE_VARS:
+                # first we compile any vars specified in defaults/main.yml
+                # for all roles within the specified play
+                for role in play.get_roles():
+                    # role from roles or include_role+public or import_role and completed
+                    if not role.from_include or role.public or (role.static and role._completed.get(to_text(host), False)):
+                        all_vars = _combine_and_track(all_vars, role.get_default_vars(), "role '%s' defaults" % role.name)
 
         if task:
             # set basedirs
@@ -215,6 +218,7 @@ class VariableManager:
             # if we have a task in this context, and that task has a role, make
             # sure it sees its defaults above any other roles, as we previously
             # (v1) made sure each task had a copy of its roles default vars
+            # TODO: investigate why we need play or include_role check?
             if task._role is not None and (play or task.action in C._ACTION_INCLUDE_ROLE):
                 all_vars = _combine_and_track(all_vars, task._role.get_default_vars(dep_chain=task.get_dep_chain()),
                                               "role '%s' defaults" % task._role.name)
@@ -232,9 +236,9 @@ class VariableManager:
                     try:
                         for entity in entities:
                             if isinstance(entity, Host):
-                                data.update(plugin.get_host_vars(entity.name))
+                                data |= plugin.get_host_vars(entity.name)
                             else:
-                                data.update(plugin.get_group_vars(entity.name))
+                                data |= plugin.get_group_vars(entity.name)
                     except AttributeError:
                         if hasattr(plugin, 'run'):
                             raise AnsibleError("Cannot use v1 type vars plugin %s from %s" % (plugin._load_name, plugin._original_path))
@@ -305,7 +309,7 @@ class VariableManager:
             # TODO: cleaning of facts should eventually become part of taskresults instead of vars
             try:
                 facts = wrap_var(self._fact_cache.get(host.name, {}))
-                all_vars.update(namespace_facts(facts))
+                all_vars |= namespace_facts(facts)
 
                 # push facts to main namespace
                 if C.INJECT_FACTS_AS_VARS:
@@ -353,8 +357,7 @@ class VariableManager:
                             try:
                                 play_search_stack = play.get_search_path()
                                 found_file = real_file = self._loader.path_dwim_relative_stack(play_search_stack, 'vars', vars_file)
-                                decrypted_file = self._loader.get_real_file(found_file)
-                                data = preprocess_vars(self._loader.load_from_file(decrypted_file, unsafe=True))
+                                data = preprocess_vars(self._loader.load_from_file(found_file, unsafe=True, cache=False))
                                 if data is not None:
                                     for item in data:
                                         all_vars = _combine_and_track(all_vars, item, "play vars_files from '%s'" % vars_file)
@@ -384,19 +387,20 @@ class VariableManager:
                 raise AnsibleParserError("Error while reading vars files - please supply a list of file names. "
                                          "Got '%s' of type %s" % (vars_files, type(vars_files)))
 
-            # By default, we now merge in all vars from all roles in the play,
+            # By default, we now merge in all exported vars from all roles in the play,
             # unless the user has disabled this via a config option
             if not C.DEFAULT_PRIVATE_ROLE_VARS:
                 for role in play.get_roles():
-                    all_vars = _combine_and_track(all_vars, role.get_vars(include_params=False), "role '%s' vars" % role.name)
+                    if not role.from_include or role.public or (role.static and role._completed.get(to_text(host), False)):
+                        all_vars = _combine_and_track(all_vars, role.get_vars(include_params=False, only_exports=True), "role '%s' exported vars" % role.name)
 
         # next, we merge in the vars from the role, which will specifically
         # follow the role dependency chain, and then we merge in the tasks
         # vars (which will look at parent blocks/task includes)
         if task:
             if task._role:
-                all_vars = _combine_and_track(all_vars, task._role.get_vars(task.get_dep_chain(), include_params=False),
-                                              "role '%s' vars" % task._role.name)
+                all_vars = _combine_and_track(all_vars, task._role.get_vars(task.get_dep_chain(), include_params=True, only_exports=False),
+                                              "role '%s' all vars" % task._role.name)
             all_vars = _combine_and_track(all_vars, task.get_vars(), "task vars")
 
         # next, we merge in the vars cache (include vars) and nonpersistent
@@ -409,9 +413,6 @@ class VariableManager:
 
         # next, we merge in role params and task include params
         if task:
-            if task._role:
-                all_vars = _combine_and_track(all_vars, task._role.get_role_params(task.get_dep_chain()), "role '%s' params" % task._role.name)
-
             # special case for include tasks, where the include params
             # may be specified in the vars field for the task, which should
             # have higher precedence than the vars/np facts above
@@ -551,8 +552,7 @@ class VariableManager:
                     # first_found loops are special. If the item is undefined then we want to fall through to the next
                     fail = False
                 try:
-                    loop_terms = listify_lookup_plugin_terms(terms=task.loop, templar=templar,
-                                                             loader=self._loader, fail_on_undefined=fail, convert_bare=False)
+                    loop_terms = listify_lookup_plugin_terms(terms=task.loop, templar=templar, fail_on_undefined=fail, convert_bare=False)
 
                     if not fail:
                         loop_terms = [t for t in loop_terms if not templar.is_template(t)]
@@ -672,7 +672,7 @@ class VariableManager:
                 raise TypeError('The object retrieved for {0} must be a MutableMapping but was'
                                 ' a {1}'.format(host, type(host_cache)))
             # Update the existing facts
-            host_cache.update(facts)
+            host_cache |= facts
 
         # Save the facts back to the backing store
         self._fact_cache[host] = host_cache
@@ -686,7 +686,7 @@ class VariableManager:
             raise AnsibleAssertionError("the type of 'facts' to set for nonpersistent_facts should be a Mapping but is a %s" % type(facts))
 
         try:
-            self._nonpersistent_fact_cache[host].update(facts)
+            self._nonpersistent_fact_cache[host] |= facts
         except KeyError:
             self._nonpersistent_fact_cache[host] = facts
 

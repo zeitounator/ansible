@@ -18,9 +18,9 @@ SDIST_DIR ?= 'dist'
 # This doesn't evaluate until it's called. The -D argument is the
 # directory of the target file ($@), kinda like `dirname`.
 MANPAGES ?= $(patsubst %.rst.in,%,$(wildcard ./docs/man/man1/ansible*.1.rst.in))
-ifneq ($(shell which rst2man 2>/dev/null),)
+ifneq ($(shell command -v rst2man 2>/dev/null),)
 ASCII2MAN = rst2man $< $@
-else ifneq ($(shell which rst2man.py 2>/dev/null),)
+else ifneq ($(shell command -v rst2man.py 2>/dev/null),)
 ASCII2MAN = rst2man.py $< $@
 else
 ASCII2MAN = @echo "ERROR: rst2man from docutils command is not installed but is required to build $(MANPAGES)" && exit 1
@@ -114,6 +114,7 @@ python:
 install:
 	$(PYTHON) setup.py install
 
+.PHONY: install_manpages
 install_manpages:
 	gzip -9 $(wildcard ./docs/man/man1/ansible*.1)
 	cp $(wildcard ./docs/man/man1/ansible*.1.gz) $(PREFIX)/man/man1/
@@ -147,8 +148,10 @@ generate_rst: lib/ansible/cli/*.py
 	mkdir -p ./docs/man/man1/ ; \
 	$(PYTHON) $(GENERATE_CLI) --template-file=docs/templates/man.j2 --output-dir=docs/man/man1/ --output-format man lib/ansible/cli/*.py
 
+.PHONY: docs
 docs: generate_rst
 	$(MAKE) $(MANPAGES)
 
+.PHONY: version
 version:
 	@echo $(VERSION)

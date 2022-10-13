@@ -193,7 +193,7 @@ class _ComputedReqKindsMixin:
         falls back to guessing the FQCN based on the directory path and
         sets the version to "*".
 
-        It raises a ValueError immediatelly if the input is not an
+        It raises a ValueError immediately if the input is not an
         existing directory path.
         """
         if not os.path.isdir(dir_path):
@@ -338,7 +338,7 @@ class _ComputedReqKindsMixin:
                     'not an FQCN. A valid collection name must be in '
                     'the format <namespace>.<collection>. Please make '
                     'sure that the namespace and the collection name '
-                    ' contain characters from [a-zA-Z0-9_] only.'
+                    'contain characters from [a-zA-Z0-9_] only.'
                     '{extra_tip!s}'.format(extra_tip=tip),
                 )
 

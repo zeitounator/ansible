@@ -203,14 +203,14 @@ imap = map
 
 try:
     # Python 2
-    unicode  # type: ignore[has-type]
+    unicode  # type: ignore[has-type]  # pylint: disable=used-before-assignment
 except NameError:
     # Python 3
     unicode = text_type
 
 try:
     # Python 2
-    basestring  # type: ignore[has-type]
+    basestring  # type: ignore[has-type]  # pylint: disable=used-before-assignment
 except NameError:
     # Python 3
     basestring = string_types
@@ -502,6 +502,7 @@ class AnsibleModule(object):
         self.validation_result = self.validator.validate(self.params)
         self.params.update(self.validation_result.validated_parameters)
         self.no_log_values.update(self.validation_result._no_log_values)
+        self.aliases.update(self.validation_result._aliases)
 
         try:
             error = self.validation_result.errors[0]

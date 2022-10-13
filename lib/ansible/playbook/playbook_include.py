@@ -41,8 +41,8 @@ display = Display()
 
 class PlaybookInclude(Base, Conditional, Taggable):
 
-    _import_playbook = FieldAttribute(isa='string')
-    _vars = FieldAttribute(isa='dict', default=dict)
+    import_playbook = FieldAttribute(isa='string')
+    vars_val = FieldAttribute(isa='dict', default=dict, alias='vars')
 
     @staticmethod
     def load(data, basedir, variable_manager=None, loader=None):
@@ -65,7 +65,7 @@ class PlaybookInclude(Base, Conditional, Taggable):
 
         all_vars = self.vars.copy()
         if variable_manager:
-            all_vars.update(variable_manager.get_vars())
+            all_vars |= variable_manager.get_vars()
 
         templar = Templar(loader=loader, variables=all_vars)
 
@@ -105,8 +105,7 @@ class PlaybookInclude(Base, Conditional, Taggable):
             if new_obj.when and isinstance(entry, Play):
                 entry._included_conditional = new_obj.when[:]
 
-            temp_vars = entry.vars.copy()
-            temp_vars.update(new_obj.vars)
+            temp_vars = entry.vars | new_obj.vars
             param_tags = temp_vars.pop('tags', None)
             if param_tags is not None:
                 entry.tags.extend(param_tags.split(','))
@@ -120,7 +119,7 @@ class PlaybookInclude(Base, Conditional, Taggable):
             # those attached to each block (if any)
             if new_obj.when:
                 for task_block in (entry.pre_tasks + entry.roles + entry.tasks + entry.post_tasks):
-                    task_block._attributes['when'] = new_obj.when[:] + task_block.when[:]
+                    task_block._when = new_obj.when[:] + task_block.when[:]
 
         return pb
 

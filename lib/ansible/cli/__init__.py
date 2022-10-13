@@ -7,15 +7,63 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
+import locale
+import os
 import sys
 
 # Used for determining if the system is running a new enough python version
 # and should only restrict on our documented minimum versions
-if sys.version_info < (3, 8):
+if sys.version_info < (3, 9):
     raise SystemExit(
-        'ERROR: Ansible requires Python 3.8 or newer on the controller. '
+        'ERROR: Ansible requires Python 3.9 or newer on the controller. '
         'Current version: %s' % ''.join(sys.version.splitlines())
     )
+
+
+def check_blocking_io():
+    """Check stdin/stdout/stderr to make sure they are using blocking IO."""
+    handles = []
+
+    for handle in (sys.stdin, sys.stdout, sys.stderr):
+        # noinspection PyBroadException
+        try:
+            fd = handle.fileno()
+        except Exception:
+            continue  # not a real file handle, such as during the import sanity test
+
+        if not os.get_blocking(fd):
+            handles.append(getattr(handle, 'name', None) or '#%s' % fd)
+
+    if handles:
+        raise SystemExit('ERROR: Ansible requires blocking IO on stdin/stdout/stderr. '
+                         'Non-blocking file handles detected: %s' % ', '.join(_io for _io in handles))
+
+
+check_blocking_io()
+
+
+def initialize_locale():
+    """Set the locale to the users default setting and ensure
+    the locale and filesystem encoding are UTF-8.
+    """
+    try:
+        locale.setlocale(locale.LC_ALL, '')
+        dummy, encoding = locale.getlocale()
+    except (locale.Error, ValueError) as e:
+        raise SystemExit(
+            'ERROR: Ansible could not initialize the preferred locale: %s' % e
+        )
+
+    if not encoding or encoding.lower() not in ('utf-8', 'utf8'):
+        raise SystemExit('ERROR: Ansible requires the locale encoding to be UTF-8; Detected %s.' % encoding)
+
+    fs_enc = sys.getfilesystemencoding()
+    if fs_enc.lower() != 'utf-8':
+        raise SystemExit('ERROR: Ansible requires the filesystem encoding to be UTF-8; Detected %s.' % fs_enc)
+
+
+initialize_locale()
+
 
 from importlib.metadata import version
 from ansible.module_utils.compat.version import LooseVersion
@@ -31,7 +79,6 @@ if jinja2_version < LooseVersion('3.0'):
 
 import errno
 import getpass
-import os
 import subprocess
 import traceback
 from abc import ABC, abstractmethod
@@ -39,8 +86,7 @@ from pathlib import Path
 
 try:
     from ansible import constants as C
-    from ansible.utils.display import Display, initialize_locale
-    initialize_locale()
+    from ansible.utils.display import Display
     display = Display()
 except Exception as e:
     print('ERROR: %s' % e, file=sys.stderr)
@@ -73,7 +119,7 @@ except ImportError:
 class CLI(ABC):
     ''' code behind bin/ansible* programs '''
 
-    PAGER = 'less'
+    PAGER = C.config.get_config_value('PAGER')
 
     # -F (quit-if-one-screen) -R (allow raw ansi control chars)
     # -S (chop long lines) -X (disable termcap init and de-init)
@@ -409,8 +455,8 @@ class CLI(ABC):
 
         try:
             options = self.parser.parse_args(self.args[1:])
-        except SystemExit as e:
-            if(e.code != 0):
+        except SystemExit as ex:
+            if ex.code != 0:
                 self.parser.exit(status=2, message=" \n%s" % self.parser.format_help())
             raise
         options = self.post_process_args(options)
@@ -448,11 +494,11 @@ class CLI(ABC):
         # this is a much simpler form of what is in pydoc.py
         if not sys.stdout.isatty():
             display.display(text, screen_only=True)
-        elif 'PAGER' in os.environ:
+        elif CLI.PAGER:
             if sys.platform == 'win32':
                 display.display(text, screen_only=True)
             else:
-                CLI.pager_pipe(text, os.environ['PAGER'])
+                CLI.pager_pipe(text)
         else:
             p = subprocess.Popen('less --version', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             p.communicate()
@@ -462,12 +508,12 @@ class CLI(ABC):
                 display.display(text, screen_only=True)
 
     @staticmethod
-    def pager_pipe(text, cmd):
+    def pager_pipe(text):
         ''' pipe text through a pager '''
-        if 'LESS' not in os.environ:
+        if 'less' in CLI.PAGER:
             os.environ['LESS'] = CLI.LESS_OPTS
         try:
-            cmd = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=sys.stdout)
+            cmd = subprocess.Popen(CLI.PAGER, shell=True, stdin=subprocess.PIPE, stdout=sys.stdout)
             cmd.communicate(input=to_bytes(text))
         except IOError:
             pass
@@ -525,7 +571,7 @@ class CLI(ABC):
 
         hosts = inventory.list_hosts(pattern)
         if not hosts and no_hosts is False:
-            raise AnsibleError("Specified hosts and/or --limit does not match any hosts")
+            raise AnsibleError("Specified inventory, host pattern and/or --limit leaves us with no hosts to target.")
 
         return hosts
 
@@ -579,7 +625,7 @@ class CLI(ABC):
         try:
             display.debug("starting run")
 
-            ansible_dir = Path("~/.ansible").expanduser()
+            ansible_dir = Path(C.ANSIBLE_HOME).expanduser()
             try:
                 ansible_dir.mkdir(mode=0o700)
             except OSError as exc:
